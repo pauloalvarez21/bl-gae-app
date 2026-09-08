@@ -1,30 +1,40 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 
 import 'package:bl_app/screens/historicoScreen.dart';
 import 'package:bl_app/screens/verificarScreen.dart';
 import 'package:bl_app/screens/generadorScreen.dart';
+import 'package:bl_app/services/balotoApi.dart';
+import 'package:bl_app/models/sorteo.dart';
 
-import 'dart:convert';
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key, this.api});
 
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+  /// API a usar; en pruebas se puede inyectar una versión mockeada.
+  final BalotoApi? api;
 
-  // 1. Función que consulta el endpoint
-  Future<Map<String, dynamic>> _consultarEndpoint() async {
-    final url = Uri.parse('https://bl-gae-api.onrender.com/baloto/ultimo');
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
 
-    try {
-      final response = await http.get(url);
+class _HomeScreenState extends State<HomeScreen> {
+  late final BalotoApi _api;
 
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      } else {
-        throw Exception('Error del servidor: ${response.statusCode}');
-      }
-    } catch (e) {
-      throw Exception('Error de conexión: $e');
-    }
+  // Se crea UNA sola vez en initState (y no en build), evitando
+  // peticiones repetidas en cada redibujado de la pantalla.
+  late Future<UltimoResultado> _resultado;
+
+  @override
+  void initState() {
+    super.initState();
+    _api = widget.api ?? BalotoApi();
+    _resultado = _api.getUltimo();
+  }
+
+  Future<void> _recargar() async {
+    setState(() {
+      _resultado = _api.getUltimo();
+    });
+    await _resultado;
   }
 
   @override
@@ -34,6 +44,13 @@ class HomeScreen extends StatelessWidget {
         title: const Text('Resultados Baloto'),
         backgroundColor: Colors.deepPurple,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Recargar',
+            onPressed: _recargar,
+          ),
+        ],
       ),
       drawer: Drawer(
         child: ListView(
@@ -75,7 +92,9 @@ class HomeScreen extends StatelessWidget {
               onTap: () => {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => HistoricoScreen()),
+                  MaterialPageRoute(
+                    builder: (context) => const HistoricoScreen(),
+                  ),
                 ),
               },
             ),
@@ -86,15 +105,17 @@ class HomeScreen extends StatelessWidget {
               onTap: () => {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => VerificarScreen()),
+                  MaterialPageRoute(
+                    builder: (context) => const VerificarScreen(),
+                  ),
                 ),
               },
             ),
           ],
         ),
       ),
-      body: FutureBuilder<Map<String, dynamic>>(
-        future: _consultarEndpoint(),
+      body: FutureBuilder<UltimoResultado>(
+        future: _resultado,
         builder: (context, snapshot) {
           // A) Estado: Cargando
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -145,17 +166,6 @@ class HomeScreen extends StatelessWidget {
           else if (snapshot.hasData) {
             final data = snapshot.data!;
 
-            // Extraemos los datos de Baloto
-            final baloto = data['baloto'] as Map<String, dynamic>;
-            final fechaBaloto = baloto['fecha'] ?? 'Fecha desconocida';
-            final numerosBaloto = List<int>.from(baloto['numeros'] ?? []);
-            final superBaloto = baloto['superbalota'] ?? 0;
-
-            // Extraemos los datos de Revancha
-            final revancha = data['revancha'] as Map<String, dynamic>;
-            final numerosRevancha = List<int>.from(revancha['numeros'] ?? []);
-            final superRevancha = revancha['superbalota'] ?? 0;
-
             return SingleChildScrollView(
               padding: const EdgeInsets.all(20.0),
               child: Column(
@@ -164,9 +174,9 @@ class HomeScreen extends StatelessWidget {
                   // --- SECCIÓN BALOTO ---
                   _buildLotteryCard(
                     title: 'BALOTO',
-                    fecha: fechaBaloto,
-                    numeros: numerosBaloto,
-                    superNumero: superBaloto,
+                    fecha: data.baloto.fecha,
+                    numeros: data.baloto.numeros,
+                    superNumero: data.baloto.superbalota,
                     color: Colors.deepPurple,
                     icon: Icons.emoji_events,
                   ),
@@ -176,9 +186,9 @@ class HomeScreen extends StatelessWidget {
                   // --- SECCIÓN REVANCHA ---
                   _buildLotteryCard(
                     title: 'REVANCHA',
-                    fecha: fechaBaloto, // Usualmente es la misma fecha
-                    numeros: numerosRevancha,
-                    superNumero: superRevancha,
+                    fecha: data.baloto.fecha, // Usualmente es la misma fecha
+                    numeros: data.revancha.numeros,
+                    superNumero: data.revancha.superbalota,
                     color: Colors.orange,
                     icon: Icons.star,
                   ),
@@ -246,7 +256,7 @@ class HomeScreen extends StatelessWidget {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: color.withOpacity(0.4),
+                        color: color.withValues(alpha: 0.4),
                         blurRadius: 8,
                         offset: const Offset(0, 4),
                       ),

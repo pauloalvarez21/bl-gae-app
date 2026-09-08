@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:flutter/services.dart';
 
-import 'dart:convert';
+import 'package:bl_app/services/balotoApi.dart';
+import 'package:bl_app/services/generadorNumeros.dart';
+import 'package:bl_app/models/sorteo.dart';
 
 class VerificarScreen extends StatefulWidget {
-  const VerificarScreen({super.key});
+  const VerificarScreen({super.key, this.api});
+
+  /// API a usar; en pruebas se puede inyectar una versión mockeada.
+  final BalotoApi? api;
 
   @override
   State<VerificarScreen> createState() => _VerificarScreenState();
@@ -12,11 +17,19 @@ class VerificarScreen extends StatefulWidget {
 
 class _VerificarScreenState extends State<VerificarScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _numerosController = TextEditingController();
+
+  // 5 controladores para los números + 1 para la Superbalota.
+  late final List<TextEditingController> _numeroControllers;
   final _superbalotaController = TextEditingController();
 
+  // Para saltar automáticamente al siguiente campo al digitar.
+  late final List<FocusNode> _focusNodes;
+  final _superbalotaFocus = FocusNode();
+
+  late final BalotoApi _api;
+
   bool _cargando = false;
-  Map<String, dynamic>? _resultado;
+  Verificacion? _resultado;
   String? _error;
 
   void _verificarNumeros() async {
@@ -29,27 +42,24 @@ class _VerificarScreenState extends State<VerificarScreen> {
     });
 
     try {
-      // Formatear la URL quitando espacios extra
-      final numerosStr = _numerosController.text.replaceAll(' ', '');
-      final url = Uri.parse(
-        'https://bl-gae-api.onrender.com/baloto/verificar?numeros=$numerosStr&superbalota=${_superbalotaController.text}',
+      // Leemos los 6 campos y delegamos al servicio.
+      final numeros = _numeroControllers
+          .map((c) => int.parse(c.text.trim()))
+          .toList();
+      final superbalota = int.parse(_superbalotaController.text.trim());
+
+      final resultado = await _api.verificar(
+        numeros: numeros,
+        superbalota: superbalota,
       );
 
-      final response = await http.get(url);
-
-      if (response.statusCode == 200) {
-        setState(() {
-          _resultado = jsonDecode(response.body);
-        });
-      } else {
-        final errorData = jsonDecode(response.body);
-        setState(() {
-          // La API a veces devuelve el error como lista o como string
-          _error = errorData['message'] is List
-              ? errorData['message'].join(', ')
-              : (errorData['message'] ?? 'Error desconocido');
-        });
-      }
+      setState(() {
+        _resultado = resultado;
+      });
+    } on ApiException catch (e) {
+      setState(() {
+        _error = e.message;
+      });
     } catch (e) {
       setState(() {
         _error = 'Error de conexión: $e';
@@ -61,25 +71,25 @@ class _VerificarScreenState extends State<VerificarScreen> {
     }
   }
 
-  // Validación: 5 números, entre 1 y 43, sin repetir
-  String? _validarNumeros(String? value) {
-    if (value == null || value.isEmpty) return 'Ingresa los 5 números';
-
-    final partes = value
-        .split(',')
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList();
-    if (partes.length != 5) return 'Debes ingresar exactamente 5 números';
-
-    for (var p in partes) {
-      final num = int.tryParse(p);
-      if (num == null || num < 1 || num > 43)
-        return 'Cada número debe estar entre 1 y 43';
+  /// Validación por campo: requerido, 1..43 y no repetido.
+  String? _validarNumero(
+    String? value, {
+    required Iterable<String> todosLosValores,
+    required int indiceActual,
+  }) {
+    if (value == null || value.isEmpty) {
+      return 'Falta el número ${indiceActual + 1}';
     }
 
-    final unicos = partes.toSet();
-    if (unicos.length != 5) return 'Los números no pueden estar repetidos';
+    final num = int.tryParse(value);
+    if (num == null || num < 1 || num > BalotoRules.maxNumero) {
+      return 'Debe estar entre 1 y 43';
+    }
+
+    final repeticiones = todosLosValores.where((v) => v == value).length;
+    if (repeticiones > 1) {
+      return 'Número repetido';
+    }
 
     return null;
   }
@@ -88,15 +98,41 @@ class _VerificarScreenState extends State<VerificarScreen> {
   String? _validarSuperbalota(String? value) {
     if (value == null || value.isEmpty) return 'Ingresa la Superbalota';
     final num = int.tryParse(value.trim());
-    if (num == null || num < 1 || num > 16)
+    if (num == null || num < 1 || num > BalotoRules.maxSuperbalota) {
       return 'La Superbalota debe estar entre 1 y 16';
+    }
     return null;
   }
 
   @override
+  void initState() {
+    super.initState();
+    _api = widget.api ?? BalotoApi();
+    _numeroControllers = List.generate(5, (_) => TextEditingController());
+    _focusNodes = List.generate(5, (_) => FocusNode());
+  }
+
+  /// Salta al siguiente campo (o a la Superbalota) al completar 2 dígitos.
+  void _avanzarSiguiente(int index, String value) {
+    if (value.length >= 2) {
+      if (index < 4) {
+        _focusNodes[index + 1].requestFocus();
+      } else {
+        _superbalotaFocus.requestFocus();
+      }
+    }
+  }
+
+  @override
   void dispose() {
-    _numerosController.dispose();
+    for (final c in _numeroControllers) {
+      c.dispose();
+    }
     _superbalotaController.dispose();
+    for (final f in _focusNodes) {
+      f.dispose();
+    }
+    _superbalotaFocus.dispose();
     super.dispose();
   }
 
@@ -121,31 +157,114 @@ class _VerificarScreenState extends State<VerificarScreen> {
               ),
               const SizedBox(height: 32),
 
-              // Input de 5 números
-              TextFormField(
-                controller: _numerosController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Tus 5 números (1 al 43)',
-                  hintText: 'Ej: 5, 12, 23, 34, 42',
-                  prefixIcon: Icon(Icons.numbers, color: Colors.deepPurple),
-                  border: OutlineInputBorder(),
-                ),
-                validator: _validarNumeros,
-              ),
-              const SizedBox(height: 16),
+              // --- FILA DE ENTRADA: 5 NÚMEROS + SUPERBALOTA ---
+              Row(
+                children: [
+                  for (var i = 0; i < 5; i++)
+                    Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(right: i < 4 ? 8 : 0),
+                        child: TextFormField(
+                          controller: _numeroControllers[i],
+                          focusNode: _focusNodes[i],
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(2),
+                          ],
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          decoration: InputDecoration(
+                            labelText: '${i + 1}',
+                            border: const OutlineInputBorder(),
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                          onChanged: (value) => _avanzarSiguiente(i, value),
+                          validator: (value) => _validarNumero(
+                            value,
+                            todosLosValores: () sync* {
+                              for (final c in _numeroControllers) {
+                                yield c.text;
+                              }
+                            }(),
+                            indiceActual: i,
+                          ),
+                        ),
+                      ),
+                    ),
 
-              // Input de Superbalota
-              TextFormField(
-                controller: _superbalotaController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Superbalota (1 al 16)',
-                  hintText: 'Ej: 14',
-                  prefixIcon: Icon(Icons.star, color: Colors.amber),
-                  border: OutlineInputBorder(),
-                ),
-                validator: _validarSuperbalota,
+                  // --- SUPERBALOTA (destacada en ámbar) ---
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 90,
+                    child: TextFormField(
+                      controller: _superbalotaController,
+                      focusNode: _superbalotaFocus,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(2),
+                      ],
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.deepOrange,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: 'SB',
+                        labelStyle: const TextStyle(
+                          color: Colors.amber,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        prefixIcon: const Icon(
+                          Icons.star,
+                          size: 18,
+                          color: Colors.amber,
+                        ),
+                        filled: true,
+                        fillColor: Colors.amber.withValues(alpha: 0.12),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Colors.amber,
+                            width: 2,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: Colors.orange.shade800,
+                            width: 2,
+                          ),
+                        ),
+                      ),
+                      validator: _validarSuperbalota,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // Ayuda visual de rangos.
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Números del 1 al 43, sin repetir',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                  Text(
+                    'Superbalota del 1 al 16',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.amber.shade800,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 32),
 
@@ -219,18 +338,16 @@ class _VerificarScreenState extends State<VerificarScreen> {
   }
 
   // Tarjeta de resultados
-  Widget _buildResultadoCard(Map<String, dynamic> data) {
-    final baloto = data['baloto'] as Map<String, dynamic>;
-    final revancha = data['revancha'] as Map<String, dynamic>;
-    final fecha = data['fecha'] ?? 'Fecha desconocida';
+  Widget _buildResultadoCard(Verificacion data) {
+    final baloto = data.baloto;
+    final revancha = data.revancha;
+    final fecha = data.fecha;
 
-    final ganoAlgo = baloto['ganador'] == true || revancha['ganador'] == true;
+    final ganoAlgo = baloto.ganador || revancha.ganador;
     final categoriaPrincipal = ganoAlgo
-        ? (baloto['ganador'] == true
-              ? baloto['categoria']
-              : revancha['categoria'])
+        ? (baloto.ganador ? baloto.categoria : revancha.categoria)
         : 'Sin premio';
-    final premioTotal = (baloto['premio'] ?? 0) + (revancha['premio'] ?? 0);
+    final premioTotal = baloto.premio + revancha.premio;
 
     return Card(
       elevation: 4,
@@ -286,14 +403,14 @@ class _VerificarScreenState extends State<VerificarScreen> {
   // Detalle por cada tipo de sorteo
   Widget _buildDetalleSorteo(
     String titulo,
-    Map<String, dynamic> datos,
+    ResultadoVerificacion datos,
     Color color,
   ) {
-    final aciertos = datos['aciertos'] as Map<String, dynamic>;
-    final numsGanadores = List<int>.from(datos['numerosGanadores'] ?? []);
-    final superGanadora = datos['superbalotaGanadora'] ?? 0;
-    final aciertosNum = aciertos['numeros'] ?? 0;
-    final aciertosSuper = aciertos['superbalota'] == true;
+    final aciertos = datos.aciertos;
+    final numsGanadores = datos.numerosGanadores;
+    final superGanadora = datos.superbalotaGanadora;
+    final aciertosNum = aciertos.numeros;
+    final aciertosSuper = aciertos.superbalota;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -314,7 +431,7 @@ class _VerificarScreenState extends State<VerificarScreen> {
         ),
         const SizedBox(height: 12),
         Text(
-          'Tus aciertos: $aciertosNum números ${aciertosSuper ? '+ Superbalota' : ''}',
+          'Tus aciertos: $aciertosNum números${aciertosSuper ? ' + Superbalota' : ''}',
           style: const TextStyle(fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: 8),
@@ -331,7 +448,7 @@ class _VerificarScreenState extends State<VerificarScreen> {
               width: 32,
               height: 32,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.2),
+                color: color.withValues(alpha: 0.2),
                 shape: BoxShape.circle,
                 border: Border.all(color: color),
               ),
@@ -359,7 +476,7 @@ class _VerificarScreenState extends State<VerificarScreen> {
               width: 28,
               height: 28,
               decoration: BoxDecoration(
-                color: Colors.amber.withOpacity(0.3),
+                color: Colors.amber.withValues(alpha: 0.3),
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.amber),
               ),

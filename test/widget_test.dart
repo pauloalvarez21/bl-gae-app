@@ -1,30 +1,146 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
+// Widget tests for the app, using a mocked BalotoApi (MockClient from
+// package:http/testing) so no real network calls are ever made.
+
+import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'package:bl_app/main.dart';
+import 'package:bl_app/services/balotoApi.dart';
+
+/// Valid JSON for the `/baloto/ultimo` endpoint.
+const ultimoJson = {
+  'baloto': {
+    'fecha': '2026-09-05',
+    'numeros': [5, 12, 23, 34, 42],
+    'superbalota': 14,
+  },
+  'revancha': {
+    'fecha': '2026-09-05',
+    'numeros': [1, 2, 3, 4, 5],
+    'superbalota': 7,
+  },
+};
+
+BalotoApi apiWith(http.Client client) => BalotoApi(client: client);
+
+Future<void> pumpApp(WidgetTester tester, BalotoApi api) async {
+  await tester.pumpWidget(MyApp(api: api));
+  // Give the FutureBuilder a frame to resolve the (already completed) mock.
+  await tester.pump();
+}
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('shows a loading indicator while the request is in flight', (
+    tester,
+  ) async {
+    // A completer keeps the future pending so we can see the loading state.
+    final pending = Completer<http.Response>();
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    final api = apiWith(MockClient((request) => pending.future));
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpWidget(MyApp(api: api));
     await tester.pump();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.text('Consultando resultados...'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+    // Complete it to avoid a pending timer/future after the test ends.
+    pending.complete(http.Response(jsonEncode(ultimoJson), 200));
+    await tester.pump();
+  });
+
+  testWidgets('renders both lottery cards when the API responds', (
+    tester,
+  ) async {
+    final api = apiWith(
+      MockClient((request) async {
+        expect(request.url.path, '/baloto/ultimo');
+        return http.Response(jsonEncode(ultimoJson), 200);
+      }),
+    );
+
+    await pumpApp(tester, api);
+
+    // Section titles.
+    expect(find.text('BALOTO'), findsOneWidget);
+    expect(find.text('REVANCHA'), findsOneWidget);
+    expect(find.text('2026-09-05'), findsNWidgets(2));
+
+    // Padded numbers ("05" instead of "5").
+    expect(find.text('05'), findsNWidgets(2)); // baloto 5 + revancha 5
+    expect(find.text('12'), findsOneWidget);
+    expect(find.text('42'), findsOneWidget);
+
+    // Superbalota badges.
+    expect(find.text('14'), findsOneWidget);
+    expect(find.text('07'), findsOneWidget);
+  });
+
+  testWidgets('shows the error UI when the API fails', (tester) async {
+    final api = apiWith(
+      MockClient((request) async {
+        return http.Response(
+          jsonEncode({'message': 'Internal server error'}),
+          500,
+        );
+      }),
+    );
+
+    await pumpApp(tester, api);
+
+    expect(find.byIcon(Icons.cloud_off), findsOneWidget);
+    expect(find.text('No se pudieron cargar los datos.'), findsOneWidget);
+    // The server message is surfaced from ApiException.toString().
+    expect(find.textContaining('Internal server error'), findsOneWidget);
+  });
+
+  testWidgets('opens the drawer and navigates to Generador Aleatorio', (
+    tester,
+  ) async {
+    final api = apiWith(
+      MockClient((request) async {
+        return http.Response(jsonEncode(ultimoJson), 200);
+      }),
+    );
+
+    await pumpApp(tester, api);
+
+    // Open the drawer via the hamburger icon in the AppBar.
+    await tester.tap(find.byIcon(Icons.menu));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Menú Principal'), findsOneWidget);
+
+    await tester.tap(find.text('Generador Aleatorio'));
+    await tester.pumpAndSettle();
+
+    // GeneradorScreen's AppBar title.
+    expect(find.text('Generador Aleatorio'), findsOneWidget);
+  });
+
+  testWidgets('has a refresh button that re-requests the endpoint', (
+    tester,
+  ) async {
+    var callCount = 0;
+
+    final api = apiWith(
+      MockClient((request) async {
+        callCount++;
+        return http.Response(jsonEncode(ultimoJson), 200);
+      }),
+    );
+
+    await pumpApp(tester, api);
+    expect(callCount, 1);
+
+    await tester.tap(find.byIcon(Icons.refresh));
+    await tester.pumpAndSettle();
+
+    expect(callCount, 2);
   });
 }

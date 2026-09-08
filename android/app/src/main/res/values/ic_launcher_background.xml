@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Fondo del ícono adaptativo (Android 8+).
+      El glifo del ícono es azul marino oscuro con acentos naranjas,
+      por lo que el blanco ofrece el mejor contraste.
+      Cambia este valor para ajustar el fondo en todos los launchers.
+    -->
+    <color name="ic_launcher_background">#FFFFFF</color>
+</resources>

@@ -1,8 +1,9 @@
-import 'dart:math';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
+import 'package:bl_app/services/generadorNumeros.dart';
 
 class GeneradorScreen extends StatefulWidget {
   const GeneradorScreen({super.key});
@@ -12,6 +13,8 @@ class GeneradorScreen extends StatefulWidget {
 }
 
 class _GeneradorScreenState extends State<GeneradorScreen> {
+  final _generador = GeneradorNumeros();
+
   List<int> _numeros = [];
   int _superbalota = 0;
   bool _estaGenerando = false;
@@ -30,37 +33,23 @@ class _GeneradorScreenState extends State<GeneradorScreen> {
 
     _timerMezcla = Timer.periodic(const Duration(milliseconds: 80), (timer) {
       setState(() {
-        _numeros = _generarNumerosTemporales();
-        _superbalota = Random().nextInt(16) + 1;
+        // Combinación provisional mientras "gira" la animación.
+        final provisional = _generador.generarCombinacion();
+        _numeros = provisional.numeros;
+        _superbalota = provisional.superbalota;
       });
     });
 
     Future.delayed(const Duration(milliseconds: 800), () {
       _timerMezcla?.cancel();
       setState(() {
-        _numeros = _generarNumerosFinales();
-        _superbalota = Random().nextInt(16) + 1;
+        // Combinación final válida.
+        final combinacion = _generador.generarCombinacion();
+        _numeros = combinacion.numeros;
+        _superbalota = combinacion.superbalota;
         _estaGenerando = false;
       });
     });
-  }
-
-  List<int> _generarNumerosFinales() {
-    final random = Random();
-    final Set<int> numerosUnicos = {};
-
-    while (numerosUnicos.length < 5) {
-      numerosUnicos.add(random.nextInt(43) + 1);
-    }
-
-    final lista = numerosUnicos.toList();
-    lista.sort();
-    return lista;
-  }
-
-  List<int> _generarNumerosTemporales() {
-    final random = Random();
-    return List.generate(5, (_) => random.nextInt(43) + 1)..sort();
   }
 
   void _copiarAlPortapapeles() {
@@ -134,7 +123,7 @@ class _GeneradorScreenState extends State<GeneradorScreen> {
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.deepPurple.withOpacity(0.4),
+                              color: Colors.deepPurple.withValues(alpha: 0.4),
                               blurRadius: 12,
                               offset: const Offset(0, 6),
                             ),

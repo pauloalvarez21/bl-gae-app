@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 
-import 'dart:convert';
+import 'package:bl_app/services/balotoApi.dart';
+import 'package:bl_app/models/sorteo.dart';
 
 class HistoricoScreen extends StatefulWidget {
-  const HistoricoScreen({super.key});
+  const HistoricoScreen({super.key, this.api});
+
+  /// API a usar; en pruebas se puede inyectar una versión mockeada.
+  final BalotoApi? api;
 
   @override
   State<HistoricoScreen> createState() => _HistoricoScreenState();
@@ -12,34 +15,25 @@ class HistoricoScreen extends StatefulWidget {
 
 class _HistoricoScreenState extends State<HistoricoScreen>
     with SingleTickerProviderStateMixin {
+  late final BalotoApi _api;
   late TabController _tabController;
+
+  // Se crea una sola vez en initState (no en build).
+  late final Future<Historico> _historico;
 
   @override
   void initState() {
     super.initState();
+    _api = widget.api ?? BalotoApi();
     // 2 pestañas: Baloto y Revancha
     _tabController = TabController(length: 2, vsync: this);
+    _historico = _api.getHistorico();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
-  }
-
-  // 1. Función que consulta el histórico
-  Future<Map<String, dynamic>> _consultarHistorico() async {
-    final url = Uri.parse('https://bl-gae-api.onrender.com/baloto/historico');
-    try {
-      final response = await http.get(url);
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      } else {
-        throw Exception('Error del servidor: ${response.statusCode}');
-      }
-    } catch (e) {
-      throw Exception('Error de conexión: $e');
-    }
   }
 
   @override
@@ -58,8 +52,8 @@ class _HistoricoScreenState extends State<HistoricoScreen>
           ],
         ),
       ),
-      body: FutureBuilder<Map<String, dynamic>>(
-        future: _consultarHistorico(),
+      body: FutureBuilder<Historico>(
+        future: _historico,
         builder: (context, snapshot) {
           // A) Cargando
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -83,13 +77,8 @@ class _HistoricoScreenState extends State<HistoricoScreen>
           // C) Éxito
           else if (snapshot.hasData) {
             final data = snapshot.data!;
-            // Convertimos las listas JSON a List<Map> de Dart
-            final balotoList = List<Map<String, dynamic>>.from(
-              data['baloto'] ?? [],
-            );
-            final revanchaList = List<Map<String, dynamic>>.from(
-              data['revancha'] ?? [],
-            );
+            final balotoList = data.baloto;
+            final revanchaList = data.revancha;
 
             return TabBarView(
               controller: _tabController,
@@ -106,7 +95,7 @@ class _HistoricoScreenState extends State<HistoricoScreen>
   }
 
   // Widget reutilizable para pintar la lista de sorteos
-  Widget _buildListView(List<Map<String, dynamic>> sorteos, Color color) {
+  Widget _buildListView(List<SorteoHistorico> sorteos, Color color) {
     if (sorteos.isEmpty) {
       return const Center(child: Text('No hay sorteos registrados aún.'));
     }
@@ -116,10 +105,10 @@ class _HistoricoScreenState extends State<HistoricoScreen>
       itemCount: sorteos.length,
       itemBuilder: (context, index) {
         final sorteo = sorteos[index];
-        final fecha = sorteo['fecha'] ?? 'Fecha desconocida';
-        final numeroSorteo = sorteo['sorteo'] ?? 0;
-        final numeros = List<int>.from(sorteo['numeros'] ?? []);
-        final superNumero = sorteo['superbalota'] ?? 0;
+        final fecha = sorteo.fecha;
+        final numeroSorteo = sorteo.numeroSorteo;
+        final numeros = sorteo.numeros;
+        final superNumero = sorteo.superbalota;
 
         return Card(
           margin: const EdgeInsets.only(bottom: 16),
@@ -165,7 +154,7 @@ class _HistoricoScreenState extends State<HistoricoScreen>
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: color.withOpacity(0.3),
+                            color: color.withValues(alpha: 0.3),
                             blurRadius: 4,
                             offset: const Offset(0, 2),
                           ),

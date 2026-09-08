@@ -1,4 +1,5 @@
 import 'package:bl_app/screens/homeScreen.dart';
+import 'package:bl_app/services/balotoApi.dart';
 import 'package:flutter/material.dart';
 
 void main() {
@@ -7,7 +8,11 @@ void main() {
 
 // Ejemplo de cómo integrarlo en una aplicación completa
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({super.key, this.api});
+
+  /// Punto de inyección para pruebas: permite pasar un [BalotoApi]
+  /// mockeado y así evitar llamadas de red reales en los tests.
+  final BalotoApi? api;
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +28,7 @@ class MyApp extends StatelessWidget {
         //brightness: Brightness.dark,
       ),
       themeMode: ThemeMode.system, // Usa el tema del sistema
-      home: const HomeScreen(),
+      home: HomeScreen(api: api),
     );
   }
 }
