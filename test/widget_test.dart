@@ -117,8 +117,8 @@ void main() {
     await pumpApp(tester, api);
 
     // The 4 destinations are present in the NavigationBar. Finders are
-    // scoped to the bar because HomeScreen also shows a 'Histórico'
-    // quick-access chip.
+    // scoped to the bar as good practice, even though the Home quick
+    // access tiles were replaced by a single Verify CTA.
     Finder navLabel(String label) => find.descendant(
       of: find.byType(NavigationBar),
       matching: find.text(label),

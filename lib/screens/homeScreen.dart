@@ -141,7 +141,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     gradient: revanchaGradient,
                   ),
                   const SizedBox(height: 24),
-                  _buildAccesosRapidos(),
+                  _buildCtaVerificar(),
                 ],
               ),
             );
@@ -239,77 +239,50 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Accesos rápidos a las otras funciones de la app.
-  Widget _buildAccesosRapidos() {
-    final accesos = [
-      ('Verificar premios', Icons.fact_check_outlined, 1),
-      ('Generar números', Icons.casino_outlined, 2),
-      ('Histórico', Icons.history_outlined, 3),
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Explora',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            for (var i = 0; i < accesos.length; i++) ...[
-              if (i > 0) const SizedBox(width: 12),
-              Expanded(
-                child: _AccesoRapido(
-                  icon: accesos[i].$2,
-                  label: accesos[i].$1,
-                  onTap: widget.onIrA == null
-                      ? null
-                      : () => widget.onIrA!(accesos[i].$3),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _AccesoRapido extends StatelessWidget {
-  const _AccesoRapido({required this.icon, required this.label, this.onTap});
-
-  final IconData icon;
-  final String label;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
+  /// CTA contextual: tras ver los resultados, la acción natural es
+  /// verificar si la jugada ganó. Reemplaza a la grilla "Explora",
+  /// que duplicaba los destinos de la barra de navegación.
+  Widget _buildCtaVerificar() {
     return Material(
       color: AppColors.card,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
-        onTap: onTap,
+        onTap: widget.onIrA == null ? null : () => widget.onIrA!(1),
         borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-          child: Column(
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.baloto.withValues(alpha: 0.4)),
+          ),
+          child: Row(
             children: [
-              Icon(icon, color: AppColors.baloto, size: 28),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+              const Icon(Icons.fact_check, color: AppColors.baloto, size: 32),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '¿Jugaste?',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Verifica si ganaste un premio',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
                 ),
               ),
+              const Icon(Icons.chevron_right, color: AppColors.textSecondary),
             ],
           ),
         ),
