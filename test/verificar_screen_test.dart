@@ -163,10 +163,7 @@ void main() {
       await fillForm(tester, ['5', '12', '23', '34', '42'], '17');
       await tapVerificar(tester);
 
-      expect(
-        find.text('Entre 1 y 16'),
-        findsOneWidget,
-      );
+      expect(find.text('Entre 1 y 16'), findsOneWidget);
     });
 
     testWidgets('does not call the API when validation fails', (tester) async {

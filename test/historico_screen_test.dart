@@ -272,25 +272,26 @@ void main() {
     );
   });
 
-  testWidgets('hides navigation controls but keeps the size selector with one page', (
-    tester,
-  ) async {
-    final api = apiWith(
-      MockClient((request) async {
-        return http.Response(jsonEncode(historicoJson), 200);
-      }),
-    );
+  testWidgets(
+    'hides navigation controls but keeps the size selector with one page',
+    (tester) async {
+      final api = apiWith(
+        MockClient((request) async {
+          return http.Response(jsonEncode(historicoJson), 200);
+        }),
+      );
 
-    await pumpScreen(tester, api);
+      await pumpScreen(tester, api);
 
-    // Single page: no pager indicator nor navigation buttons...
-    expect(find.text('Pág. 1 de 1'), findsNothing);
-    expect(find.byIcon(Icons.first_page), findsNothing);
-    expect(find.byIcon(Icons.last_page), findsNothing);
+      // Single page: no pager indicator nor navigation buttons...
+      expect(find.text('Pág. 1 de 1'), findsNothing);
+      expect(find.byIcon(Icons.first_page), findsNothing);
+      expect(find.byIcon(Icons.last_page), findsNothing);
 
-    // ...but the page-size selector stays visible.
-    expect(find.text('10'), findsOneWidget);
-  });
+      // ...but the page-size selector stays visible.
+      expect(find.text('10'), findsOneWidget);
+    },
+  );
 
   testWidgets('shows the pager and requests the next page when tapping it', (
     tester,
@@ -340,7 +341,9 @@ void main() {
         capturedQueries.add(request.url.queryParameters);
         final limit = int.parse(request.url.queryParameters['limit'] ?? '10');
         return http.Response(
-          jsonEncode(limit == 25 ? historicoLimit25Json : historicoPaginadoJson),
+          jsonEncode(
+            limit == 25 ? historicoLimit25Json : historicoPaginadoJson,
+          ),
           200,
         );
       }),
