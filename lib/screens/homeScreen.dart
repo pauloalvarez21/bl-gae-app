@@ -40,6 +40,16 @@ class _HomeScreenState extends State<HomeScreen> {
     await _resultado;
   }
 
+  /// Un [_recargar] que no lanza si el reintento vuelve a fallar
+  /// (evita que un futuro rechazado no manejado llegue a la zona.
+  Future<void> _reintentar() async {
+    try {
+      await _recargar();
+    } catch (_) {
+      // El error ya se pinta en el FutureBuilder del estado de error.
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -108,6 +118,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         fontSize: 12,
                       ),
                     ),
+                    const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      onPressed: _reintentar,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Reintentar'),
+                    ),
                   ],
                 ),
               ),
@@ -134,7 +150,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 24),
                   _buildLotteryCard(
                     title: 'REVANCHA',
-                    fecha: data.baloto.fecha, // Usualmente es la misma fecha
+                    fecha: data.revancha.fecha,
                     numeros: data.revancha.numeros,
                     superNumero: data.revancha.superbalota,
                     accent: AppColors.revancha,

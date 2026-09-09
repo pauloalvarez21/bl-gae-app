@@ -104,6 +104,42 @@ void main() {
     expect(find.textContaining('Internal server error'), findsOneWidget);
   });
 
+  testWidgets('error state offers a retry button that recovers the UI', (
+    tester,
+  ) async {
+    var fallar = true;
+
+    final api = apiWith(
+      MockClient((request) async {
+        if (request.url.path == '/baloto/ultimo') {
+          if (fallar) {
+            return http.Response(
+              jsonEncode({'message': 'Internal server error'}),
+              500,
+            );
+          }
+          return http.Response(jsonEncode(ultimoJson), 200);
+        }
+        return http.Response(jsonEncode({'baloto': [], 'revancha': []}), 200);
+      }),
+    );
+
+    await pumpApp(tester, api);
+
+    // The error UI (with the new retry button) is showing.
+    expect(find.byIcon(Icons.cloud_off), findsOneWidget);
+    expect(find.text('Reintentar'), findsOneWidget);
+
+    // Next /baloto/ultimo call succeeds.
+    fallar = false;
+    await tester.tap(find.text('Reintentar'));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.cloud_off), findsNothing);
+    expect(find.text('BALOTO'), findsOneWidget);
+    expect(find.text('REVANCHA'), findsOneWidget);
+  });
+
   testWidgets('switches tabs with the bottom navigation bar', (tester) async {
     final api = apiWith(
       MockClient((request) async {

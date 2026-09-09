@@ -5,6 +5,7 @@ import 'package:bl_app/services/balotoApi.dart';
 import 'package:bl_app/services/generadorNumeros.dart';
 import 'package:bl_app/models/sorteo.dart';
 import 'package:bl_app/config/appTheme.dart';
+import 'package:bl_app/widgets/balota.dart';
 
 class VerificarScreen extends StatefulWidget {
   const VerificarScreen({super.key, this.api});
@@ -59,13 +60,9 @@ class _VerificarScreenState extends State<VerificarScreen> {
     ResultadoVerificacion baloto,
     ResultadoVerificacion revancha,
   ) {
-    final candidatos = <String>[
-      if (baloto.ganador) _categoriasPremio[baloto.premio] ?? baloto.categoria,
-      if (revancha.ganador)
-        _categoriasPremio[revancha.premio] ?? revancha.categoria,
-    ];
-    if (candidatos.isEmpty) return null;
-    // El ID más bajo es la mejor categoría; si hay empate, la de Baloto.
+    // El ID más bajo es la mejor categoría; en empate gana Baloto
+    // (queda primero en la lista). Un ID desconocido cae al texto
+    // `categoria` que manda la API.
     String? mejor;
     var mejorId = 99;
     for (final r in [baloto, revancha]) {
@@ -75,7 +72,7 @@ class _VerificarScreenState extends State<VerificarScreen> {
         mejor = _categoriasPremio[r.premio] ?? r.categoria;
       }
     }
-    return mejor ?? candidatos.first;
+    return mejor;
   }
 
   void _verificarNumeros() async {
@@ -631,30 +628,15 @@ class _VerificarScreenState extends State<VerificarScreen> {
           style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
         ),
         const SizedBox(height: 8),
+        // Mismo widget de balota que el resto de la app (gradiente
+        // + glow), para un estilo visual consistente.
         Wrap(
           spacing: 6,
           runSpacing: 6,
-          children: numsGanadores.map((num) {
-            return Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.15),
-                shape: BoxShape.circle,
-                border: Border.all(color: color.withValues(alpha: 0.6)),
-              ),
-              child: Center(
-                child: Text(
-                  num.toString().padLeft(2, '0'),
-                  style: TextStyle(
-                    color: color,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
+          children: [
+            for (final num in numsGanadores)
+              Balota(numero: num, color: color, size: 32),
+          ],
         ),
         const SizedBox(height: 8),
         Row(
@@ -663,24 +645,11 @@ class _VerificarScreenState extends State<VerificarScreen> {
               'Super: ',
               style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
             ),
-            Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: Colors.amber.withValues(alpha: 0.3),
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.amber),
-              ),
-              child: Center(
-                child: Text(
-                  superGanadora.toString().padLeft(2, '0'),
-                  style: const TextStyle(
-                    color: Color(0xFF1C2440),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
+            Balota(
+              numero: superGanadora,
+              color: AppColors.superbalota,
+              size: 28,
+              isSuper: true,
             ),
           ],
         ),

@@ -86,6 +86,6 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
-  /// Navegación programática desde HomeScreen (sus accesos rápidos).
+  /// Navegación programática desde HomeScreen (la CTA "¿Jugaste?").
   void _irA(int indice) => setState(() => _indice = indice);
 }

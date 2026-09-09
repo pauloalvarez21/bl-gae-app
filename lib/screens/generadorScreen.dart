@@ -43,6 +43,9 @@ class _GeneradorScreenState extends State<GeneradorScreen> {
     });
 
     Future.delayed(const Duration(milliseconds: 800), () {
+      // El widget pudo haberse destruido durante la animación: si el
+      // método se ejecuta sobre un State desmontado, setState crashea.
+      if (!mounted) return;
       _timerMezcla?.cancel();
       setState(() {
         // Combinación final válida.
