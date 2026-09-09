@@ -46,7 +46,7 @@ const ganarJson = {
   'revancha': {
     'ganador': true,
     'categoria': 'Acierto 5 + Superbalota',
-    'premio': 1600000,
+    'premio': 1, // ID de categoría (1 = Premio Mayor), no un monto.
     'aciertos': {'numeros': 5, 'superbalota': true},
     'numerosGanadores': [5, 12, 23, 34, 42],
     'superbalotaGanadora': 14,
@@ -237,8 +237,9 @@ void main() {
       expect(find.byIcon(Icons.emoji_events), findsOneWidget);
       expect(find.text('ACIERTO 5 + SUPERBALOTA'), findsOneWidget);
 
-      // Total prize: 1,600,000 formatted with thousands separators.
-      expect(find.text('Premio: \$1,600,000'), findsOneWidget);
+      // The prize line shows the category name (premio is a category
+      // ID 1-7 per the API contract, never a dollar amount).
+      expect(find.text('Premio Mayor'), findsOneWidget);
 
       // The winning draw shows "+ Superbalota" in its aciertos line.
       expect(

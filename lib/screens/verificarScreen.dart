@@ -33,6 +33,44 @@ class _VerificarScreenState extends State<VerificarScreen> {
   Verificacion? _resultado;
   String? _error;
 
+  /// El campo `premio` de la API es un identificador de categoría
+  /// (1-7, 0 = sin premio), NO un monto monetario (ver openapi.json).
+  /// 1 = mayor a 7 = menor.
+  static const Map<int, String> _categoriasPremio = {
+    1: 'Premio Mayor',
+    2: 'Segundo Premio',
+    3: 'Tercer Premio',
+    4: 'Cuarto Premio',
+    5: 'Quinto Premio',
+    6: 'Sexto Premio',
+    7: 'Reintegro',
+  };
+
+  /// Nombre de la mejor categoría ganada entre Baloto y Revancha.
+  /// Devuelve null si no hay premio en ningún juego.
+  String? _mejorCategoria(
+    ResultadoVerificacion baloto,
+    ResultadoVerificacion revancha,
+  ) {
+    final candidatos = <String>[
+      if (baloto.ganador) _categoriasPremio[baloto.premio] ?? baloto.categoria,
+      if (revancha.ganador)
+        _categoriasPremio[revancha.premio] ?? revancha.categoria,
+    ];
+    if (candidatos.isEmpty) return null;
+    // El ID más bajo es la mejor categoría; si hay empate, la de Baloto.
+    String? mejor;
+    var mejorId = 99;
+    for (final r in [baloto, revancha]) {
+      if (!r.ganador) continue;
+      if (r.premio < mejorId) {
+        mejorId = r.premio;
+        mejor = _categoriasPremio[r.premio] ?? r.categoria;
+      }
+    }
+    return mejor ?? candidatos.first;
+  }
+
   void _verificarNumeros() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -423,12 +461,13 @@ class _VerificarScreenState extends State<VerificarScreen> {
             if (premioTotal > 0) ...[
               const SizedBox(height: 8),
               Text(
-                'Premio: \$${premioTotal.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}',
+                _mejorCategoria(baloto, revancha) ?? categoriaPrincipal,
                 style: const TextStyle(
-                  fontSize: 20,
+                  fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: AppColors.success,
                 ),
+                textAlign: TextAlign.center,
               ),
             ],
             const Divider(height: 32),
