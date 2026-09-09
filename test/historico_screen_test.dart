@@ -121,6 +121,13 @@ const historicoLimit25Json = {
 BalotoApi apiWith(http.Client client) => BalotoApi(client: client);
 
 Future<void> pumpScreen(WidgetTester tester, BalotoApi api) async {
+  // Superficie más alta que el viewport por defecto (800x600): el campo
+  // de búsqueda empuja la tercera tarjeta fuera de pantalla y el
+  // ListView.builder no la construye.
+  tester.view.physicalSize = const Size(800, 1600);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.reset);
+
   await tester.pumpWidget(MaterialApp(home: HistoricoScreen(api: api)));
   // One frame to build the FutureBuilder's pending state...
   await tester.pump();
@@ -368,6 +375,65 @@ void main() {
     // The reload went back to page 1 with limit=25.
     expect(capturedQueries.last['page'], '1');
     expect(capturedQueries.last['limit'], '25');
+  });
+
+  testWidgets('filters draws by draw number as the query is typed', (
+    tester,
+  ) async {
+    final api = apiWith(
+      MockClient((request) async {
+        return http.Response(jsonEncode(historicoJson), 200);
+      }),
+    );
+
+    await pumpScreen(tester, api);
+
+    // All three draws are visible before searching.
+    expect(find.text('Sorteo #5221'), findsOneWidget);
+    expect(find.text('Sorteo #5220'), findsOneWidget);
+    expect(find.text('Sorteo #5219'), findsOneWidget);
+
+    // Partial match: "522" keeps 5221 and 5220 (substring match),
+    // and drops 5219 ('5219' does not contain '522').
+    await tester.enterText(find.byType(TextField), '522');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sorteo #5221'), findsOneWidget);
+    expect(find.text('Sorteo #5220'), findsOneWidget);
+    expect(find.text('Sorteo #5219'), findsNothing);
+
+    // Clearing the search restores the full list.
+    await tester.tap(find.byTooltip('Limpiar búsqueda'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sorteo #5220'), findsOneWidget);
+  });
+
+  testWidgets('shows a no-results message when nothing matches', (
+    tester,
+  ) async {
+    final api = apiWith(
+      MockClient((request) async {
+        return http.Response(jsonEncode(historicoJson), 200);
+      }),
+    );
+
+    await pumpScreen(tester, api);
+
+    await tester.enterText(find.byType(TextField), '999');
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Ningún sorteo coincide con "999" en esta página.'),
+      findsOneWidget,
+    );
+    expect(find.text('Sorteo #5221'), findsNothing);
+
+    // The Revancha tab shows the same message for its filtered list.
+    await tapTab(tester, 'REVANCHA');
+    expect(
+      find.text('Ningún sorteo coincide con "999" en esta página.'),
+      findsOneWidget,
+    );
   });
 }
 

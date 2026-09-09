@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:bl_app/services/balotoApi.dart';
 import 'package:bl_app/models/sorteo.dart';
@@ -36,6 +37,12 @@ class _HistoricoScreenState extends State<HistoricoScreen>
   /// lista actual de vista mientras llega la nueva página).
   bool _cargandoPagina = false;
 
+  /// Búsqueda local por número de sorteo sobre la página cargada.
+  /// (El backend aún no expone filtro ?sorteo=; cuando lo haga, esto
+  /// se puede convertir en búsqueda en servidor sin cambiar la UI.)
+  final _busquedaController = TextEditingController();
+  String _query = '';
+
   @override
   void initState() {
     super.initState();
@@ -72,6 +79,7 @@ class _HistoricoScreenState extends State<HistoricoScreen>
   @override
   void dispose() {
     _tabController.dispose();
+    _busquedaController.dispose();
     super.dispose();
   }
 
@@ -169,6 +177,7 @@ class _HistoricoScreenState extends State<HistoricoScreen>
 
             return Column(
               children: [
+                _buildBusqueda(),
                 Expanded(
                   child: TabBarView(
                     controller: _tabController,
@@ -189,6 +198,52 @@ class _HistoricoScreenState extends State<HistoricoScreen>
             ),
           );
         },
+      ),
+    );
+  }
+
+  /// Campo de búsqueda por número de sorteo (filtrado local sobre la
+  /// página cargada, aplica a ambas pestañas).
+  Widget _buildBusqueda() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: TextField(
+        controller: _busquedaController,
+        keyboardType: TextInputType.number,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        onChanged: (value) => setState(() => _query = value.trim()),
+        decoration: InputDecoration(
+          hintText: 'Buscar por número de sorteo…',
+          hintStyle: const TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 14,
+          ),
+          prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary),
+          isDense: true,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.cardBorder),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.cardBorder),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.baloto, width: 2),
+          ),
+          suffixIcon: _query.isEmpty
+              ? null
+              : IconButton(
+                  icon: const Icon(Icons.close, size: 20),
+                  color: AppColors.textSecondary,
+                  tooltip: 'Limpiar búsqueda',
+                  onPressed: () {
+                    _busquedaController.clear();
+                    setState(() => _query = '');
+                  },
+                ),
+        ),
       ),
     );
   }
@@ -366,11 +421,48 @@ class _HistoricoScreenState extends State<HistoricoScreen>
       );
     }
 
+    // Filtro local por número de sorteo (coincidencia parcial).
+    final query = _query;
+    final filtrados = query.isEmpty
+        ? sorteos
+        : sorteos
+              .where((s) => s.numeroSorteo.toString().contains(query))
+              .toList();
+
+    if (filtrados.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.search_off,
+                size: 48,
+                color: AppColors.textSecondary,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Ningún sorteo coincide con "$query" en esta página.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Prueba en otra página o cambia el tamaño.',
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return ListView.builder(
       padding: const EdgeInsets.all(16.0),
-      itemCount: sorteos.length,
+      itemCount: filtrados.length,
       itemBuilder: (context, index) {
-        final sorteo = sorteos[index];
+        final sorteo = filtrados[index];
         final fecha = sorteo.fecha;
         final numeroSorteo = sorteo.numeroSorteo;
         final numeros = sorteo.numeros;
