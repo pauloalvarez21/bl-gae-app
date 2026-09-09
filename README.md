@@ -14,15 +14,18 @@ App móvil para consultar resultados, histórico y verificar jugadas de Baloto y
 ```
 lib/
 ├── config/
-│   └── apiConfig.dart        # URL base y timeout de la API (único lugar)
+│   ├── apiConfig.dart        # URL base y timeout de la API (único lugar)
+│   └── appTheme.dart         # Tema oscuro premium + paleta de colores
 ├── models/
 │   └── sorteo.dart           # Modelos tipados con fromJson
 ├── services/
 │   ├── balotoApi.dart        # Todas las llamadas HTTP + manejo de errores
 │   ├── generadorNumeros.dart # Lógica de combinaciones (Random inyectable)
 │   └── ...
+├── widgets/
+│   └── balota.dart           # Widget reutilizable de balota con animación
 └── screens/
-    ├── homeScreen.dart       # Último resultado
+    ├── homeScreen.dart       # Último resultado + accesos rápidos
     ├── historicoScreen.dart  # Histórico con pestañas
     ├── verificarScreen.dart  # Verificación de jugadas
     └── generadorScreen.dart  # Generador aleatorio
@@ -31,6 +34,27 @@ lib/
 Las pantallas solo manejan UI: nunca importan `package:http` ni `dart:convert`.
 El flujo es `Screen → Service → http`, con modelos tipados (`Sorteo`, `Historico`,
 `Verificacion`) para autocompletado y errores en tiempo de compilación.
+
+### Tema visual
+
+La app usa un tema oscuro premium definido en `lib/config/appTheme.dart`:
+
+| Color | Hex | Uso |
+|-------|-----|-----|
+| Background | `#070B1A` | Fondo principal |
+| Surface | `#0D1430` | Superficies elevadas |
+| Baloto | `#4F7CFF` | Acento azul (_BALOTO_) |
+| Revancha | `#FF8A3D` | Acento naranja (_REVANCHA_) |
+| Superbalota | `#FFC93C` | Acento ámbar |
+
+### Splash Screen
+
+Configurado con `flutter_native_splash`. Muestra el ícono de la app centrado
+sobre fondo oscuro (`#070B1A`) en Android, iOS y Web.
+
+```bash
+dart run flutter_native_splash:create   # regenerar tras cambios en pubspec.yaml
+```
 
 ### API
 
@@ -72,6 +96,15 @@ Apple queda documentado en el historial de Git):
 ## Plataformas
 
 Proyecto multiplataforma (Android, iOS, web, Windows, macOS, Linux).
+
+| Plataforma | Splash screen | Notas |
+|------------|---------------|-------|
+| Android | Nativo | Incluye soporte Android 12+ (API 31+) |
+| iOS | Nativo | LaunchScreen.storyboard con imagen centrada |
+| Web | CSS + imágenes | Light/dark mode, resolución 1x→4x |
+| macOS | No configurado | Requiere soporte manual |
+| Windows | No configurado | Requiere soporte manual |
+
 Para correr en Android:
 
 ```bash
