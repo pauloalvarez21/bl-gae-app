@@ -59,8 +59,13 @@ void main() {
   ) async {
     final api = apiWith(
       MockClient((request) async {
-        expect(request.url.path, '/baloto/ultimo');
-        return http.Response(jsonEncode(ultimoJson), 200);
+        // MainShell builds all tabs at startup, so /baloto/historico
+        // (prefetch) also goes through this mock.
+        if (request.url.path == '/baloto/ultimo') {
+          expect(request.url.path, '/baloto/ultimo');
+          return http.Response(jsonEncode(ultimoJson), 200);
+        }
+        return http.Response(jsonEncode({'baloto': [], 'revancha': []}), 200);
       }),
     );
 
@@ -99,28 +104,46 @@ void main() {
     expect(find.textContaining('Internal server error'), findsOneWidget);
   });
 
-  testWidgets('opens the drawer and navigates to Generador Aleatorio', (
-    tester,
-  ) async {
+  testWidgets('switches tabs with the bottom navigation bar', (tester) async {
     final api = apiWith(
       MockClient((request) async {
-        return http.Response(jsonEncode(ultimoJson), 200);
+        if (request.url.path == '/baloto/ultimo') {
+          return http.Response(jsonEncode(ultimoJson), 200);
+        }
+        return http.Response(jsonEncode({'baloto': [], 'revancha': []}), 200);
       }),
     );
 
     await pumpApp(tester, api);
 
-    // Open the drawer via the hamburger icon in the AppBar.
-    await tester.tap(find.byIcon(Icons.menu));
+    // The 4 destinations are present in the NavigationBar. Finders are
+    // scoped to the bar because HomeScreen also shows a 'Histórico'
+    // quick-access chip.
+    Finder navLabel(String label) => find.descendant(
+      of: find.byType(NavigationBar),
+      matching: find.text(label),
+    );
+
+    expect(navLabel('Inicio'), findsOneWidget);
+    expect(navLabel('Verificar'), findsOneWidget);
+    expect(navLabel('Generador Aleatorio'), findsOneWidget);
+    expect(navLabel('Histórico'), findsOneWidget);
+
+    // Tap the generator destination: its screen becomes visible.
+    await tester.tap(navLabel('Generador Aleatorio'));
     await tester.pumpAndSettle();
+    expect(find.text('¡Prueba tu suerte!'), findsOneWidget);
 
-    expect(find.text('Menú Principal'), findsOneWidget);
-
-    await tester.tap(find.text('Generador Aleatorio'));
+    // Switch to Histórico: its AppBar title appears.
+    await tester.tap(navLabel('Histórico'));
     await tester.pumpAndSettle();
+    expect(find.text('Histórico de Sorteos'), findsOneWidget);
 
-    // GeneradorScreen's AppBar title.
-    expect(find.text('Generador Aleatorio'), findsOneWidget);
+    // Back to Inicio: the results cards are visible again.
+    await tester.tap(navLabel('Inicio'));
+    await tester.pumpAndSettle();
+    expect(find.text('BALOTO'), findsOneWidget);
+    expect(find.text('REVANCHA'), findsOneWidget);
   });
 
   testWidgets('has a refresh button that re-requests the endpoint', (
@@ -130,7 +153,9 @@ void main() {
 
     final api = apiWith(
       MockClient((request) async {
-        callCount++;
+        // Only the last-draw endpoint counts: the shell also prefetches
+        // /baloto/historico at startup.
+        if (request.url.path == '/baloto/ultimo') callCount++;
         return http.Response(jsonEncode(ultimoJson), 200);
       }),
     );

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'package:bl_app/services/balotoApi.dart';
 import 'package:bl_app/models/sorteo.dart';
+import 'package:bl_app/config/appTheme.dart';
+import 'package:bl_app/widgets/balota.dart';
 
 class HistoricoScreen extends StatefulWidget {
   const HistoricoScreen({super.key, this.api});
@@ -19,7 +21,7 @@ class _HistoricoScreenState extends State<HistoricoScreen>
   late TabController _tabController;
 
   // Se crea una sola vez en initState (no en build).
-  late final Future<Historico> _historico;
+  late Future<Historico> _historico;
 
   @override
   void initState() {
@@ -28,6 +30,13 @@ class _HistoricoScreenState extends State<HistoricoScreen>
     // 2 pestañas: Baloto y Revancha
     _tabController = TabController(length: 2, vsync: this);
     _historico = _api.getHistorico();
+  }
+
+  Future<void> _recargar() async {
+    setState(() {
+      _historico = _api.getHistorico();
+    });
+    await _historico;
   }
 
   @override
@@ -40,11 +49,23 @@ class _HistoricoScreenState extends State<HistoricoScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Histórico de Sorteos'),
-        backgroundColor: Colors.deepPurple,
+        title: const Text(
+          'Histórico de Sorteos',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Recargar',
+            onPressed: _recargar,
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: Colors.white,
+          dividerColor: AppColors.cardBorder,
+          indicatorColor: AppColors.baloto,
+          labelColor: AppColors.baloto,
+          unselectedLabelColor: AppColors.textSecondary,
           labelStyle: const TextStyle(fontWeight: FontWeight.bold),
           tabs: const [
             Tab(text: 'BALOTO', icon: Icon(Icons.emoji_events, size: 18)),
@@ -57,20 +78,48 @@ class _HistoricoScreenState extends State<HistoricoScreen>
         builder: (context, snapshot) {
           // A) Cargando
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(color: Colors.deepPurple),
-            );
+            return const Center(child: CircularProgressIndicator());
           }
           // B) Error
           else if (snapshot.hasError) {
             return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline, color: Colors.red, size: 48),
-                  const SizedBox(height: 16),
-                  Text('Error: ${snapshot.error}', textAlign: TextAlign.center),
-                ],
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.cloud_off,
+                      color: AppColors.error,
+                      size: 64,
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'No se pudieron cargar los datos.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${snapshot.error}',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: AppColors.error,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      onPressed: _recargar,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Reintentar'),
+                    ),
+                  ],
+                ),
               ),
             );
           }
@@ -83,12 +132,17 @@ class _HistoricoScreenState extends State<HistoricoScreen>
             return TabBarView(
               controller: _tabController,
               children: [
-                _buildListView(balotoList, Colors.deepPurple),
-                _buildListView(revanchaList, Colors.orange),
+                _buildListView(balotoList, AppColors.baloto),
+                _buildListView(revanchaList, AppColors.revancha),
               ],
             );
           }
-          return const Center(child: Text('Sin datos disponibles'));
+          return const Center(
+            child: Text(
+              'Sin datos disponibles',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          );
         },
       ),
     );
@@ -97,7 +151,12 @@ class _HistoricoScreenState extends State<HistoricoScreen>
   // Widget reutilizable para pintar la lista de sorteos
   Widget _buildListView(List<SorteoHistorico> sorteos, Color color) {
     if (sorteos.isEmpty) {
-      return const Center(child: Text('No hay sorteos registrados aún.'));
+      return const Center(
+        child: Text(
+          'No hay sorteos registrados aún.',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+      );
     }
 
     return ListView.builder(
@@ -112,10 +171,6 @@ class _HistoricoScreenState extends State<HistoricoScreen>
 
         return Card(
           margin: const EdgeInsets.only(bottom: 16),
-          elevation: 2,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -135,7 +190,10 @@ class _HistoricoScreenState extends State<HistoricoScreen>
                     ),
                     Text(
                       fecha,
-                      style: const TextStyle(color: Colors.grey, fontSize: 14),
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 14,
+                      ),
                     ),
                   ],
                 ),
@@ -145,33 +203,10 @@ class _HistoricoScreenState extends State<HistoricoScreen>
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: numeros.map((num) {
-                    return Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: color,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: color.withValues(alpha: 0.3),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Center(
-                        child: Text(
-                          num.toString().padLeft(2, '0'), // Formato "05"
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
+                  children: [
+                    for (final num in numeros)
+                      Balota(numero: num, color: color, size: 40),
+                  ],
                 ),
 
                 const SizedBox(height: 16),
@@ -186,33 +221,15 @@ class _HistoricoScreenState extends State<HistoricoScreen>
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
-                        color: Colors.black87,
+                        color: AppColors.textPrimary,
                       ),
                     ),
-                    Container(
-                      width: 36,
-                      height: 36,
-                      decoration: const BoxDecoration(
-                        color: Colors.amber,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black12,
-                            blurRadius: 4,
-                            offset: Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Center(
-                        child: Text(
-                          superNumero.toString().padLeft(2, '0'),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ),
+                    const SizedBox(width: 8),
+                    Balota(
+                      numero: superNumero,
+                      color: AppColors.superbalota,
+                      size: 36,
+                      isSuper: true,
                     ),
                   ],
                 ),

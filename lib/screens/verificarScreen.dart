@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:bl_app/services/balotoApi.dart';
 import 'package:bl_app/services/generadorNumeros.dart';
 import 'package:bl_app/models/sorteo.dart';
+import 'package:bl_app/config/appTheme.dart';
 
 class VerificarScreen extends StatefulWidget {
   const VerificarScreen({super.key, this.api});
@@ -140,8 +141,10 @@ class _VerificarScreenState extends State<VerificarScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Verificar Números'),
-        backgroundColor: Colors.deepPurple,
+        title: const Text(
+          'Verificar Números',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
@@ -152,7 +155,7 @@ class _VerificarScreenState extends State<VerificarScreen> {
             children: [
               const Text(
                 'Ingresa tus números para verificar si ganaste en el último sorteo.',
-                style: TextStyle(fontSize: 16, color: Colors.grey),
+                style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
@@ -255,13 +258,16 @@ class _VerificarScreenState extends State<VerificarScreen> {
                 children: [
                   const Text(
                     'Números del 1 al 43, sin repetir',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
-                  Text(
+                  const Text(
                     'Superbalota del 1 al 16',
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.amber.shade800,
+                      color: AppColors.superbalota,
                     ),
                   ),
                 ],
@@ -272,7 +278,8 @@ class _VerificarScreenState extends State<VerificarScreen> {
               ElevatedButton(
                 onPressed: _cargando ? null : _verificarNumeros,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepPurple,
+                  backgroundColor: AppColors.baloto,
+                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -303,19 +310,21 @@ class _VerificarScreenState extends State<VerificarScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.red.shade50,
+                    color: AppColors.error.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.red.shade200),
+                    border: Border.all(
+                      color: AppColors.error.withValues(alpha: 0.5),
+                    ),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.error_outline, color: Colors.red),
+                      const Icon(Icons.error_outline, color: AppColors.error),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           _error!,
                           style: const TextStyle(
-                            color: Colors.red,
+                            color: AppColors.error,
                             fontSize: 14,
                           ),
                         ),
@@ -364,7 +373,10 @@ class _VerificarScreenState extends State<VerificarScreen> {
             const SizedBox(height: 12),
             Text(
               fecha,
-              style: const TextStyle(color: Colors.grey, fontSize: 14),
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 14,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
@@ -372,7 +384,9 @@ class _VerificarScreenState extends State<VerificarScreen> {
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: ganoAlgo ? Colors.deepPurple : Colors.grey,
+                color: ganoAlgo
+                    ? AppColors.superbalota
+                    : AppColors.textSecondary,
               ),
               textAlign: TextAlign.center,
             ),
@@ -383,17 +397,17 @@ class _VerificarScreenState extends State<VerificarScreen> {
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: Colors.green,
+                  color: AppColors.success,
                 ),
               ),
             ],
             const Divider(height: 32),
 
-            _buildDetalleSorteo('BALOTO', baloto, Colors.deepPurple),
+            _buildDetalleSorteo('BALOTO', baloto, AppColors.baloto),
             const SizedBox(height: 16),
             const Divider(),
             const SizedBox(height: 16),
-            _buildDetalleSorteo('REVANCHA', revancha, Colors.orange),
+            _buildDetalleSorteo('REVANCHA', revancha, AppColors.revancha),
           ],
         ),
       ),
@@ -432,12 +446,15 @@ class _VerificarScreenState extends State<VerificarScreen> {
         const SizedBox(height: 12),
         Text(
           'Tus aciertos: $aciertosNum números${aciertosSuper ? ' + Superbalota' : ''}',
-          style: const TextStyle(fontWeight: FontWeight.w500),
+          style: const TextStyle(
+            fontWeight: FontWeight.w500,
+            color: AppColors.textPrimary,
+          ),
         ),
         const SizedBox(height: 8),
         const Text(
           'Números ganadores del sorteo:',
-          style: TextStyle(fontSize: 12, color: Colors.grey),
+          style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
         ),
         const SizedBox(height: 8),
         Wrap(
@@ -448,9 +465,9 @@ class _VerificarScreenState extends State<VerificarScreen> {
               width: 32,
               height: 32,
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.2),
+                color: color.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
-                border: Border.all(color: color),
+                border: Border.all(color: color.withValues(alpha: 0.6)),
               ),
               child: Center(
                 child: Text(
@@ -470,7 +487,7 @@ class _VerificarScreenState extends State<VerificarScreen> {
           children: [
             const Text(
               'Super: ',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
+              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
             ),
             Container(
               width: 28,
@@ -484,7 +501,7 @@ class _VerificarScreenState extends State<VerificarScreen> {
                 child: Text(
                   superGanadora.toString().padLeft(2, '0'),
                   style: const TextStyle(
-                    color: Colors.amber,
+                    color: Color(0xFF1C2440),
                     fontWeight: FontWeight.bold,
                     fontSize: 12,
                   ),

@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:bl_app/services/generadorNumeros.dart';
+import 'package:bl_app/config/appTheme.dart';
+import 'package:bl_app/widgets/balota.dart';
 
 class GeneradorScreen extends StatefulWidget {
   const GeneradorScreen({super.key});
@@ -62,7 +64,6 @@ class _GeneradorScreenState extends State<GeneradorScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('¡Combinación copiada al portapapeles!'),
-        backgroundColor: Colors.deepPurple,
         duration: Duration(seconds: 2),
       ),
     );
@@ -72,8 +73,10 @@ class _GeneradorScreenState extends State<GeneradorScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Generador Aleatorio'),
-        backgroundColor: Colors.deepPurple,
+        title: const Text(
+          'Generador Aleatorio',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
       ),
       // 1. AGREGAMOS SingleChildScrollView para evitar desbordamientos
       body: SafeArea(
@@ -83,24 +86,20 @@ class _GeneradorScreenState extends State<GeneradorScreen> {
             // 2. Quitamos MainAxisAlignment.center para que conviva bien con el scroll
             children: [
               const SizedBox(height: 20), // Espacio superior
-              const Icon(
-                Icons.casino_sharp,
-                size: 80,
-                color: Colors.deepPurple,
-              ),
+              const Icon(Icons.casino_sharp, size: 80, color: AppColors.baloto),
               const SizedBox(height: 16),
               const Text(
                 '¡Prueba tu suerte!',
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: Colors.deepPurple,
+                  color: AppColors.textPrimary,
                 ),
               ),
               const SizedBox(height: 8),
               const Text(
                 '5 números (1-43) + 1 Superbalota (1-16)',
-                style: TextStyle(fontSize: 16, color: Colors.grey),
+                style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 40),
@@ -111,37 +110,18 @@ class _GeneradorScreenState extends State<GeneradorScreen> {
                   spacing: 16,
                   runSpacing: 16,
                   alignment: WrapAlignment.center,
-                  children: _numeros.map((num) {
-                    return AnimatedScale(
-                      scale: _estaGenerando ? 0.9 : 1.0,
-                      duration: const Duration(milliseconds: 100),
-                      child: Container(
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          color: Colors.deepPurple,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.deepPurple.withValues(alpha: 0.4),
-                              blurRadius: 12,
-                              offset: const Offset(0, 6),
-                            ),
-                          ],
-                        ),
-                        child: Center(
-                          child: Text(
-                            num.toString().padLeft(2, '0'),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                  children: [
+                    for (final num in _numeros)
+                      AnimatedScale(
+                        scale: _estaGenerando ? 0.9 : 1.0,
+                        duration: const Duration(milliseconds: 100),
+                        child: Balota(
+                          numero: num,
+                          color: AppColors.baloto,
+                          size: 60,
                         ),
                       ),
-                    );
-                  }).toList(),
+                  ],
                 ),
                 const SizedBox(height: 32),
 
@@ -153,40 +133,18 @@ class _GeneradorScreenState extends State<GeneradorScreen> {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
-                        color: Colors.black87,
+                        color: AppColors.textPrimary,
                       ),
                     ),
+                    const SizedBox(width: 8),
                     AnimatedScale(
                       scale: _estaGenerando ? 0.9 : 1.0,
                       duration: const Duration(milliseconds: 100),
-                      child: Container(
-                        width: 50,
-                        height: 50,
-                        decoration: BoxDecoration(
-                          color: Colors.amber,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.orange.shade800,
-                            width: 2,
-                          ),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Colors.black12,
-                              blurRadius: 8,
-                              offset: Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Center(
-                          child: Text(
-                            _superbalota.toString().padLeft(2, '0'),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
+                      child: Balota(
+                        numero: _superbalota,
+                        color: AppColors.superbalota,
+                        size: 50,
+                        isSuper: true,
                       ),
                     ),
                   ],
@@ -196,19 +154,16 @@ class _GeneradorScreenState extends State<GeneradorScreen> {
                 if (!_estaGenerando && _numeros.isNotEmpty)
                   OutlinedButton.icon(
                     onPressed: _copiarAlPortapapeles,
-                    icon: const Icon(Icons.copy, color: Colors.deepPurple),
+                    icon: const Icon(Icons.copy, color: AppColors.baloto),
                     label: const Text(
                       'Copiar combinación',
                       style: TextStyle(
-                        color: Colors.deepPurple,
+                        color: AppColors.baloto,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(
-                        color: Colors.deepPurple,
-                        width: 2,
-                      ),
+                      side: const BorderSide(color: AppColors.baloto, width: 2),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 24,
                         vertical: 12,
@@ -227,7 +182,8 @@ class _GeneradorScreenState extends State<GeneradorScreen> {
                 child: ElevatedButton(
                   onPressed: _estaGenerando ? null : _generarCombinacion,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.deepPurple,
+                    backgroundColor: AppColors.baloto,
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 18),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),

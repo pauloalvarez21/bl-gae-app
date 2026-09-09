@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 
-import 'package:bl_app/screens/historicoScreen.dart';
-import 'package:bl_app/screens/verificarScreen.dart';
-import 'package:bl_app/screens/generadorScreen.dart';
 import 'package:bl_app/services/balotoApi.dart';
 import 'package:bl_app/models/sorteo.dart';
+import 'package:bl_app/config/appTheme.dart';
+import 'package:bl_app/widgets/balota.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, this.api});
+  const HomeScreen({super.key, this.api, this.onIrA});
 
   /// API a usar; en pruebas se puede inyectar una versión mockeada.
   final BalotoApi? api;
+
+  /// Navega a una pestaña del shell principal (0..3). En pruebas con
+  /// [MaterialApp] directo puede ser null.
+  final ValueChanged<int>? onIrA;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -41,9 +44,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Resultados Baloto'),
-        backgroundColor: Colors.deepPurple,
-        elevation: 0,
+        title: const Text(
+          'Resultados Baloto',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -51,68 +55,6 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: _recargar,
           ),
         ],
-      ),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: <Widget>[
-            const DrawerHeader(
-              decoration: BoxDecoration(color: Colors.deepPurple),
-              child: Text(
-                'Menú Principal',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.home, color: Colors.deepPurple),
-              title: const Text('Home'),
-              onTap: () => Navigator.pop(context),
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.casino_sharp, color: Colors.deepPurple),
-              title: const Text('Generador Aleatorio'),
-              onTap: () => {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const GeneradorScreen(),
-                  ),
-                ),
-              },
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.settings, color: Colors.deepPurple),
-              title: const Text('Historico'),
-              onTap: () => {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const HistoricoScreen(),
-                  ),
-                ),
-              },
-            ),
-            Divider(),
-            ListTile(
-              leading: const Icon(Icons.settings, color: Colors.deepPurple),
-              title: const Text('Verificar Números'),
-              onTap: () => {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const VerificarScreen(),
-                  ),
-                ),
-              },
-            ),
-          ],
-        ),
       ),
       body: FutureBuilder<UltimoResultado>(
         future: _resultado,
@@ -123,25 +65,30 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircularProgressIndicator(color: Colors.deepPurple),
+                  CircularProgressIndicator(),
                   SizedBox(height: 16),
                   Text(
                     'Consultando resultados...',
-                    style: TextStyle(color: Colors.grey),
+                    style: TextStyle(color: AppColors.textSecondary),
                   ),
                 ],
               ),
             );
           }
+
           // B) Estado: Error
-          else if (snapshot.hasError) {
+          if (snapshot.hasError) {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(24.0),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.cloud_off, color: Colors.orange, size: 64),
+                    const Icon(
+                      Icons.cloud_off,
+                      color: AppColors.revancha,
+                      size: 64,
+                    ),
                     const SizedBox(height: 16),
                     const Text(
                       'No se pudieron cargar los datos.',
@@ -149,49 +96,52 @@ class _HomeScreenState extends State<HomeScreen> {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       '${snapshot.error}',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.red, fontSize: 12),
+                      style: const TextStyle(
+                        color: AppColors.error,
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ),
               ),
             );
           }
+
           // C) Estado: Éxito (Datos listos)
-          else if (snapshot.hasData) {
+          if (snapshot.hasData) {
             final data = snapshot.data!;
 
             return SingleChildScrollView(
               padding: const EdgeInsets.all(20.0),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // --- SECCIÓN BALOTO ---
                   _buildLotteryCard(
                     title: 'BALOTO',
                     fecha: data.baloto.fecha,
                     numeros: data.baloto.numeros,
                     superNumero: data.baloto.superbalota,
-                    color: Colors.deepPurple,
-                    icon: Icons.emoji_events,
+                    accent: AppColors.baloto,
+                    gradient: balotoGradient,
                   ),
-
                   const SizedBox(height: 24),
-
-                  // --- SECCIÓN REVANCHA ---
                   _buildLotteryCard(
                     title: 'REVANCHA',
                     fecha: data.baloto.fecha, // Usualmente es la misma fecha
                     numeros: data.revancha.numeros,
                     superNumero: data.revancha.superbalota,
-                    color: Colors.orange,
-                    icon: Icons.star,
+                    accent: AppColors.revancha,
+                    gradient: revanchaGradient,
                   ),
+                  const SizedBox(height: 24),
+                  _buildAccesosRapidos(),
                 ],
               ),
             );
@@ -209,12 +159,19 @@ class _HomeScreenState extends State<HomeScreen> {
     required String fecha,
     required List<int> numeros,
     required int superNumero,
-    required Color color,
-    required IconData icon,
+    required Color accent,
+    required List<Color> gradient,
   }) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: gradient,
+        ),
+        border: Border.all(color: accent.withValues(alpha: 0.4)),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
@@ -222,15 +179,15 @@ class _HomeScreenState extends State<HomeScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, color: color, size: 28),
+                Icon(Icons.emoji_events, color: accent, size: 24),
                 const SizedBox(width: 8),
                 Text(
                   title,
                   style: TextStyle(
-                    fontSize: 22,
+                    fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: color,
-                    letterSpacing: 1.2,
+                    color: accent,
+                    letterSpacing: 2,
                   ),
                 ),
               ],
@@ -238,49 +195,24 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 4),
             Text(
               fecha,
-              style: const TextStyle(color: Colors.grey, fontSize: 14),
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 14,
+              ),
             ),
             const SizedBox(height: 20),
-
-            // Números principales
             Wrap(
               spacing: 12,
               runSpacing: 12,
               alignment: WrapAlignment.center,
-              children: numeros.map((numero) {
-                return Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: color,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: color.withValues(alpha: 0.4),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Center(
-                    child: Text(
-                      numero.toString().padLeft(2, '0'), // Ej: "05"
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
+              children: [
+                for (final numero in numeros)
+                  Balota(numero: numero, color: accent, size: 50),
+              ],
             ),
-
-            const SizedBox(height: 24),
-            const Divider(),
-            const SizedBox(height: 16),
-
-            // Super Balota / Super Revancha
+            const SizedBox(height: 20),
+            Divider(color: Colors.white.withValues(alpha: 0.12)),
+            const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -289,40 +221,97 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
+                    color: AppColors.textPrimary,
                   ),
                 ),
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: Colors.amber,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.orange.shade800, width: 2),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Colors.black12,
-                        blurRadius: 4,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Center(
-                    child: Text(
-                      superNumero.toString().padLeft(2, '0'),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        shadows: [
-                          Shadow(color: Colors.black26, offset: Offset(0, 1)),
-                        ],
-                      ),
-                    ),
-                  ),
+                const SizedBox(width: 8),
+                Balota(
+                  numero: superNumero,
+                  color: AppColors.superbalota,
+                  size: 44,
+                  isSuper: true,
                 ),
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  // Accesos rápidos a las otras funciones de la app.
+  Widget _buildAccesosRapidos() {
+    final accesos = [
+      ('Verificar premios', Icons.fact_check_outlined, 1),
+      ('Generar números', Icons.casino_outlined, 2),
+      ('Histórico', Icons.history_outlined, 3),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Explora',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            for (var i = 0; i < accesos.length; i++) ...[
+              if (i > 0) const SizedBox(width: 12),
+              Expanded(
+                child: _AccesoRapido(
+                  icon: accesos[i].$2,
+                  label: accesos[i].$1,
+                  onTap: widget.onIrA == null
+                      ? null
+                      : () => widget.onIrA!(accesos[i].$3),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _AccesoRapido extends StatelessWidget {
+  const _AccesoRapido({required this.icon, required this.label, this.onTap});
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.card,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+          child: Column(
+            children: [
+              Icon(icon, color: AppColors.baloto, size: 28),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
