@@ -120,11 +120,14 @@ La primera compilación de Android descarga el SDK/NDK y dependencias de Gradle
 ### Android
 
 ```bash
-# Build normal (firma de debug)
+# APK normal (firma de debug)
 flutter build apk --release
 
-# Build con ofuscación (recomendado para producción)
+# APK con ofuscación (recomendado para producción)
 flutter build apk --release --obfuscate --split-debug-info=build/debug-info
+
+# AAB (Android App Bundle) para Google Play
+flutter build appbundle --release --obfuscate --split-debug-info=build/debug-info
 ```
 
 La ofuscación renombra clases y métodos a nombres ilegibles, dificultando el
