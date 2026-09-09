@@ -106,6 +106,11 @@ void main() {
                   'superbalota': 8,
                 },
               ],
+              'paginacion': {
+                'paginaActual': 1,
+                'totalPaginas': 1,
+                'resultadosPorPagina': 10,
+              },
             }),
             200,
           );
@@ -121,6 +126,69 @@ void main() {
 
         expect(historico.revancha, hasLength(1));
         expect(historico.revancha.first.superbalota, 8);
+      });
+
+      test('sends page and limit as query params when provided', () async {
+        Uri? capturedUri;
+
+        final mockClient = MockClient((request) async {
+          capturedUri = request.url;
+
+          return http.Response(
+            jsonEncode({
+              'baloto': [],
+              'revancha': [],
+              'paginacion': {
+                'paginaActual': 3,
+                'totalPaginas': 125,
+                'resultadosPorPagina': 20,
+              },
+            }),
+            200,
+          );
+        });
+
+        final api = BalotoApi(client: mockClient);
+        final historico = await api.getHistorico(page: 3, limit: 20);
+
+        expect(capturedUri!.path, '/baloto/historico');
+        expect(capturedUri!.queryParameters['page'], '3');
+        expect(capturedUri!.queryParameters['limit'], '20');
+
+        // The paginacion block is parsed into typed metadata.
+        expect(historico.paginacion, isNotNull);
+        expect(historico.paginacion!.paginaActual, 3);
+        expect(historico.paginacion!.totalPaginas, 125);
+        expect(historico.paginacion!.resultadosPorPagina, 20);
+      });
+
+      test('does not send query params when omitted', () async {
+        Uri? capturedUri;
+
+        final mockClient = MockClient((request) async {
+          capturedUri = request.url;
+
+          return http.Response(jsonEncode({'baloto': [], 'revancha': []}), 200);
+        });
+
+        final api = BalotoApi(client: mockClient);
+        await api.getHistorico();
+
+        expect(capturedUri!.queryParameters, isNot(contains('page')));
+        expect(capturedUri!.queryParameters, isNot(contains('limit')));
+      });
+
+      test('paginacion is null when the block is missing (tolerant)', () async {
+        final mockClient = MockClient((request) async {
+          return http.Response(jsonEncode({'baloto': [], 'revancha': []}), 200);
+        });
+
+        final api = BalotoApi(client: mockClient);
+        final historico = await api.getHistorico();
+
+        expect(historico.paginacion, isNull);
+        expect(historico.baloto, isEmpty);
+        expect(historico.revancha, isEmpty);
       });
 
       test('tolerates missing keys returning empty lists', () async {

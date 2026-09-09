@@ -110,7 +110,7 @@ void main() {
       await tapVerificar(tester);
 
       expect(find.textContaining('Falta el número'), findsNWidgets(5));
-      expect(find.text('Ingresa la Superbalota'), findsOneWidget);
+      expect(find.text('Ingresa la SB'), findsOneWidget);
     });
 
     testWidgets('flags only the fields left empty', (tester) async {
@@ -163,10 +163,7 @@ void main() {
       await fillForm(tester, ['5', '12', '23', '34', '42'], '17');
       await tapVerificar(tester);
 
-      expect(
-        find.text('La Superbalota debe estar entre 1 y 16'),
-        findsOneWidget,
-      );
+      expect(find.text('Entre 1 y 16'), findsOneWidget);
     });
 
     testWidgets('does not call the API when validation fails', (tester) async {

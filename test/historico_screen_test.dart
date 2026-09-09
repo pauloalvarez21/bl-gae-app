@@ -13,6 +13,7 @@ import 'package:bl_app/screens/historicoScreen.dart';
 import 'package:bl_app/services/balotoApi.dart';
 
 /// Histórico with several draws in Baloto and a single Revancha draw.
+/// Single page (totalPaginas: 1) so the pager bar stays hidden.
 const historicoJson = {
   'baloto': [
     {
@@ -42,6 +43,79 @@ const historicoJson = {
       'superbalota': 8,
     },
   ],
+  'paginacion': {
+    'paginaActual': 1,
+    'totalPaginas': 1,
+    'resultadosPorPagina': 10,
+  },
+};
+
+/// Multi-page histórico: the pager bar becomes visible.
+const historicoPaginadoJson = {
+  'baloto': [
+    {
+      'sorteo': 5221,
+      'fecha': '2026-09-05',
+      'numeros': [5, 12, 23, 34, 42],
+      'superbalota': 14,
+    },
+  ],
+  'revancha': [
+    {
+      'sorteo': 5221,
+      'fecha': '2026-09-05',
+      'numeros': [6, 11, 22, 33, 42],
+      'superbalota': 8,
+    },
+  ],
+  'paginacion': {
+    'paginaActual': 1,
+    'totalPaginas': 3,
+    'resultadosPorPagina': 10,
+  },
+};
+
+/// Page 2 of the multi-page histórico: different draws, new metadata.
+const historicoPagina2Json = {
+  'baloto': [
+    {
+      'sorteo': 5218,
+      'fecha': '2026-08-26',
+      'numeros': [2, 10, 20, 30, 41],
+      'superbalota': 5,
+    },
+  ],
+  'revancha': [],
+  'paginacion': {
+    'paginaActual': 2,
+    'totalPaginas': 3,
+    'resultadosPorPagina': 10,
+  },
+};
+
+/// Same multi-page histórico but served with limit=25.
+const historicoLimit25Json = {
+  'baloto': [
+    {
+      'sorteo': 5221,
+      'fecha': '2026-09-05',
+      'numeros': [5, 12, 23, 34, 42],
+      'superbalota': 14,
+    },
+  ],
+  'revancha': [
+    {
+      'sorteo': 5221,
+      'fecha': '2026-09-05',
+      'numeros': [6, 11, 22, 33, 42],
+      'superbalota': 8,
+    },
+  ],
+  'paginacion': {
+    'paginaActual': 1,
+    'totalPaginas': 2,
+    'resultadosPorPagina': 25,
+  },
 };
 
 BalotoApi apiWith(http.Client client) => BalotoApi(client: client);
@@ -196,6 +270,104 @@ void main() {
       ),
       findsNWidgets(3),
     );
+  });
+
+  testWidgets(
+    'hides navigation controls but keeps the size selector with one page',
+    (tester) async {
+      final api = apiWith(
+        MockClient((request) async {
+          return http.Response(jsonEncode(historicoJson), 200);
+        }),
+      );
+
+      await pumpScreen(tester, api);
+
+      // Single page: no pager indicator nor navigation buttons...
+      expect(find.text('Pág. 1 de 1'), findsNothing);
+      expect(find.byIcon(Icons.first_page), findsNothing);
+      expect(find.byIcon(Icons.last_page), findsNothing);
+
+      // ...but the page-size selector stays visible.
+      expect(find.text('10'), findsOneWidget);
+    },
+  );
+
+  testWidgets('shows the pager and requests the next page when tapping it', (
+    tester,
+  ) async {
+    final requestedPages = <String>[];
+
+    final api = apiWith(
+      MockClient((request) async {
+        requestedPages.add(request.url.queryParameters['page'] ?? '1');
+        final page = int.parse(requestedPages.last);
+        return http.Response(
+          jsonEncode(page == 1 ? historicoPaginadoJson : historicoPagina2Json),
+          200,
+        );
+      }),
+    );
+
+    await pumpScreen(tester, api);
+
+    // Multi-page response -> pager bar is visible.
+    expect(find.text('Pág. 1 de 3'), findsOneWidget);
+
+    // On the first page, backward controls are disabled.
+    final backButton = tester.widget<IconButton>(
+      find.widgetWithIcon(IconButton, Icons.first_page),
+    );
+    expect(backButton.onPressed, isNull);
+
+    // Go to page 2: the mock serves different draws.
+    await tester.tap(find.byIcon(Icons.chevron_right));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pág. 2 de 3'), findsOneWidget);
+    expect(find.text('Sorteo #5218'), findsOneWidget);
+    expect(find.text('Sorteo #5221'), findsNothing);
+    // The first request carried page=1 (limit is always sent).
+    expect(requestedPages.first, '1');
+  });
+
+  testWidgets('changing the page size reloads page 1 with the new limit', (
+    tester,
+  ) async {
+    final capturedQueries = <Map<String, String>>[];
+
+    final api = apiWith(
+      MockClient((request) async {
+        capturedQueries.add(request.url.queryParameters);
+        final limit = int.parse(request.url.queryParameters['limit'] ?? '10');
+        return http.Response(
+          jsonEncode(
+            limit == 25 ? historicoLimit25Json : historicoPaginadoJson,
+          ),
+          200,
+        );
+      }),
+    );
+
+    await pumpScreen(tester, api);
+
+    // Default page size is 10 with a multi-page histórico.
+    expect(find.text('Pág. 1 de 3'), findsOneWidget);
+    expect(find.text('10'), findsOneWidget); // the selector chip
+
+    // Open the selector and pick 25.
+    await tester.tap(find.text('10'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('25 por página'));
+    await tester.pumpAndSettle();
+
+    // The chip now shows 25 and the pager reflects the new metadata.
+    expect(find.text('25'), findsOneWidget);
+    expect(find.text('Pág. 1 de 2'), findsOneWidget);
+
+    // The reload went back to page 1 with limit=25.
+    expect(capturedQueries.last['page'], '1');
+    expect(capturedQueries.last['limit'], '25');
   });
 }
 

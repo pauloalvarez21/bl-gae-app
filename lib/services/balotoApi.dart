@@ -34,9 +34,19 @@ class BalotoApi {
     return UltimoResultado.fromJson(json);
   }
 
-  /// Histórico completo de sorteos.
-  Future<Historico> getHistorico() async {
-    final json = await _getJson(_uri('/baloto/historico'));
+  /// Histórico de sorteos, con paginación del lado del servidor.
+  ///
+  /// [page] y [limit] son opcionales: si se omiten, el backend usa sus
+  /// valores por defecto (página 1, 10 resultados por página).
+  Future<Historico> getHistorico({int? page, int? limit}) async {
+    var uri = _uri('/baloto/historico');
+    final params = <String, String>{
+      if (page != null) 'page': '$page',
+      if (limit != null) 'limit': '$limit',
+    };
+    if (params.isNotEmpty) uri = uri.replace(queryParameters: params);
+
+    final json = await _getJson(uri);
     return Historico.fromJson(json);
   }
 
