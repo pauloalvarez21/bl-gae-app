@@ -166,7 +166,7 @@ void main() {
 
     await pumpScreen(tester, api);
 
-    expect(find.byIcon(Icons.error_outline), findsOneWidget);
+    expect(find.byIcon(Icons.cloud_off), findsOneWidget);
     expect(find.textContaining('service unavailable'), findsOneWidget);
   });
 
