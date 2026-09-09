@@ -95,12 +95,13 @@ class _VerificarScreenState extends State<VerificarScreen> {
     return null;
   }
 
-  // Validación: 1 número entre 1 y 16
+  // Validación: 1 número entre 1 y 16.
+  // Mensajes cortos: el campo mide ~90px y un texto largo se corta.
   String? _validarSuperbalota(String? value) {
-    if (value == null || value.isEmpty) return 'Ingresa la Superbalota';
+    if (value == null || value.isEmpty) return 'Ingresa la SB';
     final num = int.tryParse(value.trim());
     if (num == null || num < 1 || num > BalotoRules.maxSuperbalota) {
-      return 'La Superbalota debe estar entre 1 y 16';
+      return 'Entre 1 y 16';
     }
     return null;
   }
@@ -161,7 +162,10 @@ class _VerificarScreenState extends State<VerificarScreen> {
               const SizedBox(height: 32),
 
               // --- FILA DE ENTRADA: 5 NÚMEROS + SUPERBALOTA ---
+              // crossAxisAlignment.start: el error cuelga debajo del
+              // campo sin desalinear el resto de la fila.
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   for (var i = 0; i < 5; i++)
                     Expanded(
@@ -244,7 +248,33 @@ class _VerificarScreenState extends State<VerificarScreen> {
                             width: 2,
                           ),
                         ),
+                        // Error visible: borde grueso rojo + texto
+                        // compacto que sí cabe en el campo angosto.
+                        errorMaxLines: 2,
+                        errorStyle: const TextStyle(
+                          color: AppColors.error,
+                          fontSize: 11,
+                          height: 1.15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        errorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: AppColors.error,
+                            width: 2,
+                          ),
+                        ),
+                        focusedErrorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: AppColors.error,
+                            width: 2,
+                          ),
+                        ),
                       ),
+                      // Feedback inmediato: valida mientras se digita,
+                      // sin esperar a presionar el botón.
+                      autovalidateMode: AutovalidateMode.onUserInteraction,
                       validator: _validarSuperbalota,
                     ),
                   ),

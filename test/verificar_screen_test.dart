@@ -110,7 +110,7 @@ void main() {
       await tapVerificar(tester);
 
       expect(find.textContaining('Falta el número'), findsNWidgets(5));
-      expect(find.text('Ingresa la Superbalota'), findsOneWidget);
+      expect(find.text('Ingresa la SB'), findsOneWidget);
     });
 
     testWidgets('flags only the fields left empty', (tester) async {
@@ -164,7 +164,7 @@ void main() {
       await tapVerificar(tester);
 
       expect(
-        find.text('La Superbalota debe estar entre 1 y 16'),
+        find.text('Entre 1 y 16'),
         findsOneWidget,
       );
     });
