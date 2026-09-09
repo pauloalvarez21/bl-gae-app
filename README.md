@@ -114,3 +114,23 @@ flutter run -d <device-id>   # ej: flutter run -d HA11V6D8
 
 La primera compilación de Android descarga el SDK/NDK y dependencias de Gradle
 (varios minutos; requiere conexión estable a `repo.maven.apache.org`).
+
+## Build de release
+
+### Android
+
+```bash
+# Build normal (firma de debug)
+flutter build apk --release
+
+# Build con ofuscación (recomendado para producción)
+flutter build apk --release --obfuscate --split-debug-info=build/debug-info
+```
+
+La ofuscación renombra clases y métodos a nombres ilegibles, dificultando el
+reverse engineering. El mapa de desobfusqueda se guarda en `build/debug-info/`
+(guardarlo para leer stack traces en crash reports).
+
+**Firma de release:** copiar `android/key.properties.example` a
+`android/key.properties` y completar las credenciales de la keystore.
+Si no existe keystore válida, se usa firma de debug automáticamente.
