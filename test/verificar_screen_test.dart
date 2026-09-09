@@ -56,7 +56,107 @@ const ganarJson = {
 BalotoApi apiWith(http.Client client) => BalotoApi(client: client);
 
 Future<void> pumpScreen(WidgetTester tester, BalotoApi api) async {
+  // Surface grande: en modo "Por fecha" el formulario crece y la
+  // tarjeta de resultados debe quedar construible dentro del viewport.
+  tester.view.physicalSize = const Size(800, 1600);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.reset);
+
   await tester.pumpWidget(MaterialApp(home: VerificarScreen(api: api)));
+}
+
+/// Switches to the "Por fecha" mode and picks a concrete date through
+/// the real date picker dialog.
+Future<void> chooseDate(
+  WidgetTester tester,
+  BalotoApi api,
+  DateTime date,
+) async {
+  await tester.tap(find.text('Por fecha'));
+  await tester.pumpAndSettle();
+
+  await tester.tap(find.text('Toca para elegir…'));
+  await tester.pumpAndSettle();
+
+  // Navigate the calendar dialog to the desired month/year.
+  var guard = 0;
+  while (!find.text(_mesAnio(date)).evaluate().isNotEmpty && guard < 24) {
+    final visible = _primerMesVisible(tester);
+    if (visible.isBefore(date)) {
+      await tester.tap(find.byIcon(Icons.chevron_right));
+    } else {
+      await tester.tap(find.byIcon(Icons.chevron_left));
+    }
+    await tester.pumpAndSettle();
+    guard++;
+  }
+
+  // Scope to the dialog: the form behind it also has a "5" label.
+  await tester.tap(
+    find
+        .descendant(
+          of: find.byType(DatePickerDialog),
+          matching: find.text('${date.day}'),
+        )
+        .last,
+  );
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('OK'));
+  await tester.pumpAndSettle();
+}
+
+String _mesAnio(DateTime d) {
+  const meses = [
+    'enero',
+    'febrero',
+    'marzo',
+    'abril',
+    'mayo',
+    'junio',
+    'julio',
+    'agosto',
+    'septiembre',
+    'octubre',
+    'noviembre',
+    'diciembre',
+  ];
+  return '${meses[d.month - 1]} ${d.year}';
+}
+
+DateTime _primerMesVisible(WidgetTester tester) {
+  // The dialog header shows the visible month; parse it back.
+  final header = tester
+      .widget<Text>(
+        find.descendant(
+          of: find.byType(DatePickerDialog),
+          matching: find.byWidgetPredicate(
+            (w) => w is Text && w.data != null && _esMesAnio(w.data!),
+          ),
+        ),
+      )
+      .data!;
+  const meses = [
+    'enero',
+    'febrero',
+    'marzo',
+    'abril',
+    'mayo',
+    'junio',
+    'julio',
+    'agosto',
+    'septiembre',
+    'octubre',
+    'noviembre',
+    'diciembre',
+  ];
+  final partes = header.split(' ');
+  return DateTime(int.parse(partes.last), meses.indexOf(partes.first) + 1);
+}
+
+bool _esMesAnio(String s) {
+  final partes = s.split(' ');
+  if (partes.length != 2) return false;
+  return int.tryParse(partes.last) != null;
 }
 
 /// Fields are located by index: 0..4 are the numbers, 5 is the Superbalota.
@@ -317,6 +417,86 @@ void main() {
       await tapVerificar(tester);
       expect(find.text('boom'), findsNothing);
       expect(find.text('SIN PREMIO'), findsWidgets);
+    });
+  });
+
+  group('verify by date', () {
+    testWidgets('blocks submission without a date and shows the error', (
+      tester,
+    ) async {
+      var llamadas = 0;
+      final api = apiWith(
+        MockClient((request) async {
+          llamadas++;
+          return http.Response(jsonEncode(perderJson), 200);
+        }),
+      );
+      await pumpScreen(tester, api);
+
+      await tester.tap(find.text('Por fecha'));
+      await tester.pumpAndSettle();
+
+      await fillForm(tester, ['5', '12', '23', '34', '42'], '14');
+      await tapVerificar(tester);
+
+      expect(find.text('Selecciona la fecha del sorteo'), findsOneWidget);
+      expect(llamadas, 0);
+    });
+
+    testWidgets('sends the fecha query param and renders the result', (
+      tester,
+    ) async {
+      Uri? capturedUri;
+      final api = apiWith(
+        MockClient((request) async {
+          capturedUri = request.url;
+          return http.Response(jsonEncode(perderJson), 200);
+        }),
+      );
+      await pumpScreen(tester, api);
+
+      await tester.tap(find.text('Por fecha'));
+      await tester.pumpAndSettle();
+      await chooseDate(tester, api, DateTime(2026, 9, 5));
+
+      await fillForm(tester, ['5', '12', '23', '34', '42'], '14');
+      await tapVerificar(tester);
+      await tester.pumpAndSettle();
+
+      expect(capturedUri!.path, '/baloto/verificar-por-fecha');
+      expect(capturedUri!.queryParameters['fecha'], '2026-09-05');
+      expect(capturedUri!.queryParameters['numeros'], '5,12,23,34,42');
+      expect(find.text('SIN PREMIO'), findsWidgets);
+    });
+
+    testWidgets('surfaces the 404 message when the date has no draw', (
+      tester,
+    ) async {
+      final api = apiWith(
+        MockClient((request) async {
+          return http.Response(
+            jsonEncode({
+              'statusCode': 404,
+              'message': 'No se encontró sorteo para la fecha 2025-01-01',
+            }),
+            404,
+          );
+        }),
+      );
+      await pumpScreen(tester, api);
+
+      await tester.tap(find.text('Por fecha'));
+      await tester.pumpAndSettle();
+      await chooseDate(tester, api, DateTime(2026, 9, 5));
+
+      await fillForm(tester, ['5', '12', '23', '34', '42'], '14');
+      await tapVerificar(tester);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('No se encontró sorteo para la fecha'),
+        findsOneWidget,
+      );
     });
   });
 }

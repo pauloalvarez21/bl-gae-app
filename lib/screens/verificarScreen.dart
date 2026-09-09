@@ -33,6 +33,13 @@ class _VerificarScreenState extends State<VerificarScreen> {
   Verificacion? _resultado;
   String? _error;
 
+  /// Modo de verificación: contra el último sorteo o contra el sorteo
+  /// de una fecha específica (endpoint /baloto/verificar-por-fecha).
+  bool _modoPorFecha = false;
+
+  /// Fecha elegida en el modo "Por fecha" (null = sin elegir).
+  DateTime? _fechaSeleccionada;
+
   /// El campo `premio` de la API es un identificador de categoría
   /// (1-7, 0 = sin premio), NO un monto monetario (ver openapi.json).
   /// 1 = mayor a 7 = menor.
@@ -74,6 +81,13 @@ class _VerificarScreenState extends State<VerificarScreen> {
   void _verificarNumeros() async {
     if (!_formKey.currentState!.validate()) return;
 
+    // En modo "Por fecha" la fecha es obligatoria (no pasa por el
+    // validador del formulario porque no es un TextFormField).
+    if (_modoPorFecha && _fechaSeleccionada == null) {
+      setState(() => _error = 'Selecciona la fecha del sorteo');
+      return;
+    }
+
     setState(() {
       _cargando = true;
       _error = null;
@@ -87,10 +101,13 @@ class _VerificarScreenState extends State<VerificarScreen> {
           .toList();
       final superbalota = int.parse(_superbalotaController.text.trim());
 
-      final resultado = await _api.verificar(
-        numeros: numeros,
-        superbalota: superbalota,
-      );
+      final resultado = _modoPorFecha
+          ? await _api.verificarPorFecha(
+              fecha: _formatearFecha(_fechaSeleccionada!),
+              numeros: numeros,
+              superbalota: superbalota,
+            )
+          : await _api.verificar(numeros: numeros, superbalota: superbalota);
 
       setState(() {
         _resultado = resultado;
@@ -131,6 +148,30 @@ class _VerificarScreenState extends State<VerificarScreen> {
     }
 
     return null;
+  }
+
+  /// Formatea la fecha como YYYY-MM-DD para el query de la API.
+  String _formatearFecha(DateTime d) {
+    final mes = d.month.toString().padLeft(2, '0');
+    final dia = d.day.toString().padLeft(2, '0');
+    return '${d.year}-$mes-$dia';
+  }
+
+  /// Abre el selector de fechas y guarda la elección.
+  Future<void> _elegirFecha() async {
+    final hoy = DateTime.now();
+    final elegida = await showDatePicker(
+      context: context,
+      initialDate: _fechaSeleccionada ?? hoy,
+      firstDate: DateTime(2026, 7, 1),
+      lastDate: hoy,
+    );
+    if (elegida != null) {
+      setState(() {
+        _fechaSeleccionada = elegida;
+        _error = null;
+      });
+    }
   }
 
   // Validación: 1 número entre 1 y 16.
@@ -197,7 +238,71 @@ class _VerificarScreenState extends State<VerificarScreen> {
                 style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
+
+              // --- MODO: ÚLTIMO SORTEO / POR FECHA ---
+              SegmentedButton<bool>(
+                segments: const [
+                  ButtonSegment(
+                    value: false,
+                    icon: Icon(Icons.emoji_events_outlined, size: 18),
+                    label: Text('Último sorteo'),
+                  ),
+                  ButtonSegment(
+                    value: true,
+                    icon: Icon(Icons.event_outlined, size: 18),
+                    label: Text('Por fecha'),
+                  ),
+                ],
+                selected: {_modoPorFecha},
+                onSelectionChanged: (seleccion) {
+                  setState(() {
+                    _modoPorFecha = seleccion.first;
+                    _error = null;
+                    _resultado = null;
+                  });
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // Campo de fecha: solo visible en modo "Por fecha".
+              if (_modoPorFecha) ...[
+                InkWell(
+                  onTap: _elegirFecha,
+                  borderRadius: BorderRadius.circular(12),
+                  child: InputDecorator(
+                    decoration: InputDecoration(
+                      labelText: 'Fecha del sorteo',
+                      prefixIcon: const Icon(
+                        Icons.calendar_month,
+                        color: AppColors.baloto,
+                      ),
+                      suffixIcon: const Icon(Icons.arrow_drop_down),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                          color: AppColors.cardBorder,
+                        ),
+                      ),
+                    ),
+                    child: Text(
+                      _fechaSeleccionada == null
+                          ? 'Toca para elegir…'
+                          : _formatearFecha(_fechaSeleccionada!),
+                      style: TextStyle(
+                        color: _fechaSeleccionada == null
+                            ? AppColors.textSecondary
+                            : AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+              const SizedBox(height: 8),
 
               // --- FILA DE ENTRADA: 5 NÚMEROS + SUPERBALOTA ---
               // crossAxisAlignment.start: el error cuelga debajo del

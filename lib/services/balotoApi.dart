@@ -65,6 +65,27 @@ class BalotoApi {
     return Verificacion.fromJson(json);
   }
 
+  /// Verifica una jugada contra el sorteo de una fecha específica.
+  ///
+  /// [fecha] debe venir en formato `YYYY-MM-DD`. Si en esa fecha no
+  /// hubo sorteo, el backend responde 404 y aquí se lanza [ApiException]
+  /// con el mensaje del servidor.
+  Future<Verificacion> verificarPorFecha({
+    required String fecha,
+    required List<int> numeros,
+    required int superbalota,
+  }) async {
+    final uri = _uri('/baloto/verificar-por-fecha').replace(
+      queryParameters: {
+        'fecha': fecha,
+        'numeros': numeros.join(','),
+        'superbalota': '$superbalota',
+      },
+    );
+    final json = await _getJson(uri);
+    return Verificacion.fromJson(json);
+  }
+
   // ---------- Internos ----------
 
   Uri _uri(String path) => Uri.parse('${ApiConfig.baseUrl}$path');
