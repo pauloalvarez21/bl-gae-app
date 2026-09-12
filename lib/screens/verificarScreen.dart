@@ -5,6 +5,7 @@ import 'package:bl_app/services/balotoApi.dart';
 import 'package:bl_app/services/generadorNumeros.dart';
 import 'package:bl_app/models/sorteo.dart';
 import 'package:bl_app/config/appTheme.dart';
+import 'package:bl_app/utils/fechas.dart';
 import 'package:bl_app/widgets/balota.dart';
 
 class VerificarScreen extends StatefulWidget {
@@ -33,13 +34,6 @@ class _VerificarScreenState extends State<VerificarScreen> {
   bool _cargando = false;
   Verificacion? _resultado;
   String? _error;
-
-  /// Modo de verificación: contra el último sorteo o contra el sorteo
-  /// de una fecha específica (endpoint /baloto/verificar-por-fecha).
-  bool _modoPorFecha = false;
-
-  /// Fecha elegida en el modo "Por fecha" (null = sin elegir).
-  DateTime? _fechaSeleccionada;
 
   /// El campo `premio` de la API es un identificador de categoría
   /// (1-7, 0 = sin premio), NO un monto monetario (ver openapi.json).
@@ -78,13 +72,6 @@ class _VerificarScreenState extends State<VerificarScreen> {
   void _verificarNumeros() async {
     if (!_formKey.currentState!.validate()) return;
 
-    // En modo "Por fecha" la fecha es obligatoria (no pasa por el
-    // validador del formulario porque no es un TextFormField).
-    if (_modoPorFecha && _fechaSeleccionada == null) {
-      setState(() => _error = 'Selecciona la fecha del sorteo');
-      return;
-    }
-
     setState(() {
       _cargando = true;
       _error = null;
@@ -98,13 +85,12 @@ class _VerificarScreenState extends State<VerificarScreen> {
           .toList();
       final superbalota = int.parse(_superbalotaController.text.trim());
 
-      final resultado = _modoPorFecha
-          ? await _api.verificarPorFecha(
-              fecha: _formatearFecha(_fechaSeleccionada!),
-              numeros: numeros,
-              superbalota: superbalota,
-            )
-          : await _api.verificar(numeros: numeros, superbalota: superbalota);
+      // El backend eliminó /verificar-por-fecha: la verificación es
+      // siempre contra el último sorteo.
+      final resultado = await _api.verificar(
+        numeros: numeros,
+        superbalota: superbalota,
+      );
 
       setState(() {
         _resultado = resultado;
@@ -145,30 +131,6 @@ class _VerificarScreenState extends State<VerificarScreen> {
     }
 
     return null;
-  }
-
-  /// Formatea la fecha como YYYY-MM-DD para el query de la API.
-  String _formatearFecha(DateTime d) {
-    final mes = d.month.toString().padLeft(2, '0');
-    final dia = d.day.toString().padLeft(2, '0');
-    return '${d.year}-$mes-$dia';
-  }
-
-  /// Abre el selector de fechas y guarda la elección.
-  Future<void> _elegirFecha() async {
-    final hoy = DateTime.now();
-    final elegida = await showDatePicker(
-      context: context,
-      initialDate: _fechaSeleccionada ?? hoy,
-      firstDate: DateTime(2026, 7, 1),
-      lastDate: hoy,
-    );
-    if (elegida != null) {
-      setState(() {
-        _fechaSeleccionada = elegida;
-        _error = null;
-      });
-    }
   }
 
   // Validación: 1 número entre 1 y 16.
@@ -237,70 +199,6 @@ class _VerificarScreenState extends State<VerificarScreen> {
               ),
               const SizedBox(height: 24),
 
-              // --- MODO: ÚLTIMO SORTEO / POR FECHA ---
-              SegmentedButton<bool>(
-                segments: const [
-                  ButtonSegment(
-                    value: false,
-                    icon: Icon(Icons.emoji_events_outlined, size: 18),
-                    label: Text('Último sorteo'),
-                  ),
-                  ButtonSegment(
-                    value: true,
-                    icon: Icon(Icons.event_outlined, size: 18),
-                    label: Text('Por fecha'),
-                  ),
-                ],
-                selected: {_modoPorFecha},
-                onSelectionChanged: (seleccion) {
-                  setState(() {
-                    _modoPorFecha = seleccion.first;
-                    _error = null;
-                    _resultado = null;
-                  });
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Campo de fecha: solo visible en modo "Por fecha".
-              if (_modoPorFecha) ...[
-                InkWell(
-                  onTap: _elegirFecha,
-                  borderRadius: BorderRadius.circular(12),
-                  child: InputDecorator(
-                    decoration: InputDecoration(
-                      labelText: 'Fecha del sorteo',
-                      prefixIcon: const Icon(
-                        Icons.calendar_month,
-                        color: AppColors.baloto,
-                      ),
-                      suffixIcon: const Icon(Icons.arrow_drop_down),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: AppColors.cardBorder,
-                        ),
-                      ),
-                    ),
-                    child: Text(
-                      _fechaSeleccionada == null
-                          ? 'Toca para elegir…'
-                          : _formatearFecha(_fechaSeleccionada!),
-                      style: TextStyle(
-                        color: _fechaSeleccionada == null
-                            ? AppColors.textSecondary
-                            : AppColors.textPrimary,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-              ],
-              const SizedBox(height: 8),
-
               // --- FILA DE ENTRADA: 5 NÚMEROS + SUPERBALOTA ---
               // crossAxisAlignment.start: el error cuelga debajo del
               // campo sin desalinear el resto de la fila.
@@ -359,32 +257,34 @@ class _VerificarScreenState extends State<VerificarScreen> {
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: Colors.deepOrange,
+                        color: AppColors.superbalotaText,
                       ),
                       decoration: InputDecoration(
                         labelText: 'SB',
                         labelStyle: const TextStyle(
-                          color: Colors.amber,
+                          color: AppColors.superbalota,
                           fontWeight: FontWeight.bold,
                         ),
                         prefixIcon: const Icon(
                           Icons.star,
                           size: 18,
-                          color: Colors.amber,
+                          color: AppColors.superbalota,
                         ),
                         filled: true,
-                        fillColor: Colors.amber.withValues(alpha: 0.12),
+                        fillColor: AppColors.superbalota.withValues(
+                          alpha: 0.12,
+                        ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: const BorderSide(
-                            color: Colors.amber,
+                            color: AppColors.superbalota,
                             width: 2,
                           ),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide(
-                            color: Colors.orange.shade800,
+                            color: AppColors.superbalotaFocus,
                             width: 2,
                           ),
                         ),
@@ -449,7 +349,7 @@ class _VerificarScreenState extends State<VerificarScreen> {
                 onPressed: _cargando ? null : _verificarNumeros,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.baloto,
-                  foregroundColor: Colors.white,
+                  foregroundColor: AppColors.onAccent,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -460,7 +360,7 @@ class _VerificarScreenState extends State<VerificarScreen> {
                         height: 20,
                         width: 20,
                         child: CircularProgressIndicator(
-                          color: Colors.white,
+                          color: AppColors.onAccent,
                           strokeWidth: 2,
                         ),
                       )
@@ -469,7 +369,7 @@ class _VerificarScreenState extends State<VerificarScreen> {
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: AppColors.onAccent,
                         ),
                       ),
               ),
@@ -526,7 +426,9 @@ class _VerificarScreenState extends State<VerificarScreen> {
     final categoriaPrincipal = ganoAlgo
         ? (baloto.ganador ? baloto.categoria : revancha.categoria)
         : 'Sin premio';
-    final premioTotal = baloto.premio + revancha.premio;
+    // `premio` es un ID de categoría (1-7, 0 = sin premio), no un monto,
+    // así que NO se suman: basta con que alguno sea > 0.
+    final conPremio = baloto.premio > 0 || revancha.premio > 0;
 
     return Card(
       elevation: 4,
@@ -537,12 +439,12 @@ class _VerificarScreenState extends State<VerificarScreen> {
           children: [
             Icon(
               ganoAlgo ? Icons.emoji_events : Icons.sentiment_dissatisfied,
-              color: ganoAlgo ? Colors.amber : Colors.grey,
+              color: ganoAlgo ? AppColors.superbalota : AppColors.textSecondary,
               size: 64,
             ),
             const SizedBox(height: 12),
             Text(
-              fecha,
+              formatearFecha(fecha),
               style: const TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 14,
@@ -560,7 +462,7 @@ class _VerificarScreenState extends State<VerificarScreen> {
               ),
               textAlign: TextAlign.center,
             ),
-            if (premioTotal > 0) ...[
+            if (conPremio) ...[
               const SizedBox(height: 8),
               Text(
                 _mejorCategoria(baloto, revancha) ?? categoriaPrincipal,

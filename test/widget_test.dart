@@ -29,7 +29,9 @@ const ultimoJson = {
 BalotoApi apiWith(http.Client client) => BalotoApi(client: client);
 
 Future<void> pumpApp(WidgetTester tester, BalotoApi api) async {
-  await tester.pumpWidget(MyApp(api: api));
+  // mostrarSplash: false → llega directo al shell (el splash se cubre
+  // en su propio test).
+  await tester.pumpWidget(MyApp(api: api, mostrarSplash: false));
   // Give the FutureBuilder a frame to resolve the (already completed) mock.
   await tester.pump();
 }
@@ -43,7 +45,7 @@ void main() {
 
     final api = apiWith(MockClient((request) => pending.future));
 
-    await tester.pumpWidget(MyApp(api: api));
+    await tester.pumpWidget(MyApp(api: api, mostrarSplash: false));
     await tester.pump();
 
     expect(find.text('Consultando resultados...'), findsOneWidget);
@@ -74,7 +76,7 @@ void main() {
     // Section titles.
     expect(find.text('BALOTO'), findsOneWidget);
     expect(find.text('REVANCHA'), findsOneWidget);
-    expect(find.text('2026-09-05'), findsNWidgets(2));
+    expect(find.text('5 sept 2026'), findsNWidgets(2));
 
     // Padded numbers ("05" instead of "5").
     expect(find.text('05'), findsNWidgets(2)); // baloto 5 + revancha 5
@@ -203,5 +205,43 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(callCount, 2);
+  });
+
+  testWidgets('splash shows the credit and version, then enters the app', (
+    tester,
+  ) async {
+    final api = apiWith(
+      MockClient((request) async {
+        if (request.url.path == '/baloto/ultimo') {
+          return http.Response(jsonEncode(ultimoJson), 200);
+        }
+        return http.Response(jsonEncode({'baloto': [], 'revancha': []}), 200);
+      }),
+    );
+
+    await tester.pumpWidget(MyApp(api: api, mostrarSplash: true));
+    await tester.pump(); // primer frame de la animación de entrada
+
+    // Crédito institucional y versión visibles durante el splash.
+    expect(
+      find.text('© 2026 Gaelectronica. Todos los derechos reservados.'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Herramienta desarrollada por el Gaelectronica.'),
+      findsOneWidget,
+    );
+    expect(find.text('v1.0.0'), findsOneWidget);
+
+    // Avanza el reloj de pruebas: la animación de entrada termina a los
+    // 900 ms y pumpAndSettle se detendría ahí (sin frames programados),
+    // así que se avanza explícitamente hasta disparar el Timer de 2 s.
+    await tester.pump(const Duration(seconds: 2));
+    // Completa el fundido de 600 ms hacia el shell.
+    await tester.pumpAndSettle();
+
+    // Ya estamos en el shell: el splash desapareció.
+    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.text('v1.0.0'), findsNothing);
   });
 }

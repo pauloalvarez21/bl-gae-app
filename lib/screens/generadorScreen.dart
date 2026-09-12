@@ -186,7 +186,7 @@ class _GeneradorScreenState extends State<GeneradorScreen> {
                   onPressed: _estaGenerando ? null : _generarCombinacion,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.baloto,
-                    foregroundColor: Colors.white,
+                    foregroundColor: AppColors.onAccent,
                     padding: const EdgeInsets.symmetric(vertical: 18),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
@@ -201,7 +201,7 @@ class _GeneradorScreenState extends State<GeneradorScreen> {
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(
-                                color: Colors.white,
+                                color: AppColors.onAccent,
                                 strokeWidth: 2.5,
                               ),
                             ),
@@ -211,7 +211,7 @@ class _GeneradorScreenState extends State<GeneradorScreen> {
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                                color: AppColors.onAccent,
                               ),
                             ),
                           ],
@@ -219,14 +219,14 @@ class _GeneradorScreenState extends State<GeneradorScreen> {
                       : const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.auto_awesome, color: Colors.white),
+                            Icon(Icons.auto_awesome, color: AppColors.onAccent),
                             SizedBox(width: 8),
                             Text(
                               'GENERAR COMBINACIÓN',
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                                color: AppColors.onAccent,
                               ),
                             ),
                           ],

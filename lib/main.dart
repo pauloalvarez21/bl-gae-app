@@ -1,6 +1,7 @@
 import 'package:bl_app/screens/generadorScreen.dart';
 import 'package:bl_app/screens/historicoScreen.dart';
 import 'package:bl_app/screens/homeScreen.dart';
+import 'package:bl_app/screens/splashScreen.dart';
 import 'package:bl_app/screens/verificarScreen.dart';
 import 'package:bl_app/config/appTheme.dart';
 import 'package:bl_app/services/balotoApi.dart';
@@ -11,11 +12,14 @@ void main() {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key, this.api});
+  const MyApp({super.key, this.api, this.mostrarSplash = true});
 
   /// Punto de inyección para pruebas: permite pasar un [BalotoApi]
   /// mockeado y así evitar llamadas de red reales en los tests.
   final BalotoApi? api;
+
+  /// En pruebas se puede saltar el splash para llegar directo al shell.
+  final bool mostrarSplash;
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +27,9 @@ class MyApp extends StatelessWidget {
       title: 'Baloto',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
-      home: MainShell(api: api),
+      home: mostrarSplash
+          ? SplashScreen(siguiente: MainShell(api: api))
+          : MainShell(api: api),
     );
   }
 }

@@ -89,52 +89,20 @@ class SorteoHistorico {
 }
 
 /// Respuesta de `/baloto/historico`: listas de Baloto y Revancha.
-
+/// El backend ya no pagina: devuelve la lista completa sin bloque
+/// `paginacion`.
 class Historico {
   final List<SorteoHistorico> baloto;
   final List<SorteoHistorico> revancha;
 
-  /// Metadatos de paginación que devuelve el backend.
-  /// Puede ser null si el servidor aún no envía el bloque `paginacion`.
-  final Paginacion? paginacion;
-
-  const Historico({
-    required this.baloto,
-    required this.revancha,
-    this.paginacion,
-  });
+  const Historico({required this.baloto, required this.revancha});
 
   factory Historico.fromJson(Map<String, dynamic> json) {
-    final paginacionJson = json['paginacion'];
     return Historico(
       baloto: _toMapList(json['baloto']).map(SorteoHistorico.fromJson).toList(),
       revancha: _toMapList(json['revancha'])
           .map(SorteoHistorico.fromJson)
           .toList(),
-      paginacion: paginacionJson is Map<String, dynamic>
-          ? Paginacion.fromJson(paginacionJson)
-          : null,
-    );
-  }
-}
-
-/// Bloque `paginacion` de la respuesta `/baloto/historico`.
-class Paginacion {
-  final int paginaActual;
-  final int totalPaginas;
-  final int resultadosPorPagina;
-
-  const Paginacion({
-    required this.paginaActual,
-    required this.totalPaginas,
-    required this.resultadosPorPagina,
-  });
-
-  factory Paginacion.fromJson(Map<String, dynamic> json) {
-    return Paginacion(
-      paginaActual: _toInt(json['paginaActual'], 1),
-      totalPaginas: _toInt(json['totalPaginas'], 1),
-      resultadosPorPagina: _toInt(json['resultadosPorPagina'], 10),
     );
   }
 }

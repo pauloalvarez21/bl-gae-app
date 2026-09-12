@@ -17,9 +17,22 @@ class AppColors {
   static const revancha = Color(0xFFFF8A3D);
   static const superbalota = Color(0xFFFFC93C);
 
+  /// Rampa de la Superbalota para su campo de entrada en Verificar:
+  /// texto naranja profundo y borde en estado enfocado.
+  static const superbalotaText = Color(0xFFFF5722);
+  static const superbalotaFocus = Color(0xFFEF6C00);
+
   // Texto
   static const textPrimary = Color(0xFFF4F6FF);
   static const textSecondary = Color(0xFF9BA6D0);
+
+  /// Contenido (texto/iconos) sobre fondos de acento, p. ej. el
+  /// botón «VERIFICAR PREMIO».
+  static const onAccent = Color(0xFFFFFFFF);
+
+  /// Fondo blanco del splash in-app: el logo es un glifo azul marino
+  /// pensado para fondos claros y desaparece sobre el tema oscuro.
+  static const splashBackground = Color(0xFFFFFFFF);
 
   // Estados
   static const error = Color(0xFFFF5C6C);

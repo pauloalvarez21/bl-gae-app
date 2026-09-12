@@ -3,7 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:bl_app/services/balotoApi.dart';
 import 'package:bl_app/models/sorteo.dart';
 import 'package:bl_app/config/appTheme.dart';
+import 'package:bl_app/utils/fechas.dart';
 import 'package:bl_app/widgets/balota.dart';
+import 'package:bl_app/widgets/balotoSiteLink.dart';
+import 'package:bl_app/widgets/errorRetryView.dart';
+import 'package:bl_app/widgets/loadingView.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, this.api, this.onIrA});
@@ -33,18 +37,16 @@ class _HomeScreenState extends State<HomeScreen> {
     _resultado = _api.getUltimo();
   }
 
+  /// Recarga el resultado. No lanza: si la petición falla, el error
+  /// se pinta solo en el FutureBuilder (estado de error). Así el botón
+  /// del AppBar y el de "Reintentar" comparten el mismo camino seguro,
+  /// sin futuros rechazados no manejados.
   Future<void> _recargar() async {
     setState(() {
       _resultado = _api.getUltimo();
     });
-    await _resultado;
-  }
-
-  /// Un [_recargar] que no lanza si el reintento vuelve a fallar
-  /// (evita que un futuro rechazado no manejado llegue a la zona.
-  Future<void> _reintentar() async {
     try {
-      await _recargar();
+      await _resultado;
     } catch (_) {
       // El error ya se pinta en el FutureBuilder del estado de error.
     }
@@ -71,62 +73,14 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (context, snapshot) {
           // A) Estado: Cargando
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text(
-                    'Consultando resultados...',
-                    style: TextStyle(color: AppColors.textSecondary),
-                  ),
-                ],
-              ),
-            );
+            return const LoadingView(mensaje: 'Consultando resultados...');
           }
 
           // B) Estado: Error
           if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.cloud_off,
-                      color: AppColors.revancha,
-                      size: 64,
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'No se pudieron cargar los datos.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${snapshot.error}',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: AppColors.error,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    ElevatedButton.icon(
-                      onPressed: _reintentar,
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Reintentar'),
-                    ),
-                  ],
-                ),
-              ),
+            return ErrorRetryView(
+              error: snapshot.error,
+              onReintentar: _recargar,
             );
           }
 
@@ -141,7 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   _buildLotteryCard(
                     title: 'BALOTO',
-                    fecha: data.baloto.fecha,
+                    fecha: formatearFecha(data.baloto.fecha),
                     numeros: data.baloto.numeros,
                     superNumero: data.baloto.superbalota,
                     accent: AppColors.baloto,
@@ -150,7 +104,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 24),
                   _buildLotteryCard(
                     title: 'REVANCHA',
-                    fecha: data.revancha.fecha,
+                    fecha: formatearFecha(data.revancha.fecha),
                     numeros: data.revancha.numeros,
                     superNumero: data.revancha.superbalota,
                     accent: AppColors.revancha,
@@ -158,6 +112,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 24),
                   _buildCtaVerificar(),
+                  const SizedBox(height: 24),
+
+                  // Enlace al histórico completo del sitio oficial.
+                  const BalotoSiteLink(),
                 ],
               ),
             );
@@ -227,7 +185,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
             const SizedBox(height: 20),
-            Divider(color: Colors.white.withValues(alpha: 0.12)),
+            Divider(color: AppColors.cardBorder.withValues(alpha: 0.7)),
             const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,

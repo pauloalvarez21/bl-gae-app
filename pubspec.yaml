@@ -35,7 +35,9 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   http: ^1.6.0
+  intl: ^0.20.2
   flutter_native_splash: ^2.4.8
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:
@@ -92,8 +94,11 @@ flutter:
   # see https://flutter.dev/to/font-from-package
 
 flutter_native_splash:
-  color: "#070B1A"
-  image: assets/splash.png
+  color: "#FFFFFF"
+  # Imagen compuesta: logo + crédito © Gaelectronica + versión horneados,
+  # para que el splash nativo (que domina el arranque en frío en
+  # dispositivos lentos) muestre el texto institucional.
+  image: assets/splash_full.png
   android: true
   ios: true
   web: true

@@ -1,0 +1,373 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/": {
+      "get": {
+        "operationId": "AppController_getHello",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "App"
+        ]
+      }
+    },
+    "/baloto/ultimo": {
+      "get": {
+        "description": "Devuelve el último resultado de Baloto y Revancha",
+        "operationId": "BalotoController_obtenerUltimoResultado",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Último resultado de Baloto y Revancha",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UltimoResultadoResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Último resultado",
+        "tags": [
+          "baloto"
+        ]
+      }
+    },
+    "/baloto/historico": {
+      "get": {
+        "description": "Devuelve los últimos resultados de Baloto y Revancha",
+        "operationId": "BalotoController_obtenerHistorico",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Últimos resultados de Baloto y Revancha",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HistoricoResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Histórico de resultados",
+        "tags": [
+          "baloto"
+        ]
+      }
+    },
+    "/baloto/verificar": {
+      "get": {
+        "description": "Verifica una jugada contra el último sorteo y determina si gana premio",
+        "operationId": "BalotoController_verificarNumeros",
+        "parameters": [
+          {
+            "name": "numeros",
+            "required": true,
+            "in": "query",
+            "description": "Números de la jugada: separados por comas (11,12,17,5,6) o parámetro repetido 5 veces",
+            "schema": {
+              "example": "11,12,17,5,6",
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            }
+          },
+          {
+            "name": "superbalota",
+            "required": true,
+            "in": "query",
+            "description": "Número superbalota (1-16)",
+            "schema": {
+              "example": 15,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resultado de la verificación contra Baloto y Revancha",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerificarResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Verificar jugada",
+        "tags": [
+          "baloto"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Bl-GAE API",
+    "description": "API de resultados de Baloto y Revancha (Colombia)",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "baloto",
+      "description": "Resultados y verificación de jugadas de Baloto"
+    }
+  ],
+  "servers": [],
+  "components": {
+    "schemas": {
+      "ResultadoSorteoDto": {
+        "type": "object",
+        "properties": {
+          "sorteo": {
+            "type": "number",
+            "description": "Número de sorteo",
+            "example": 1
+          },
+          "fecha": {
+            "type": "string",
+            "description": "Fecha del sorteo",
+            "example": "5 de Septiembre de 2026"
+          },
+          "numeros": {
+            "description": "5 números principales del sorteo",
+            "example": [
+              11,
+              12,
+              17,
+              28,
+              31
+            ],
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "superbalota": {
+            "type": "number",
+            "description": "Número superbalota",
+            "example": 15
+          }
+        },
+        "required": [
+          "sorteo",
+          "fecha",
+          "numeros",
+          "superbalota"
+        ]
+      },
+      "UltimoResultadoResponseDto": {
+        "type": "object",
+        "properties": {
+          "baloto": {
+            "description": "Resultado de Baloto (null si no hay datos)",
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResultadoSorteoDto"
+              }
+            ]
+          },
+          "revancha": {
+            "description": "Resultado de Revancha (null si no hay datos)",
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResultadoSorteoDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "baloto",
+          "revancha"
+        ]
+      },
+      "HistoricoResponseDto": {
+        "type": "object",
+        "properties": {
+          "baloto": {
+            "description": "Últimos resultados de Baloto",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResultadoSorteoDto"
+            }
+          },
+          "revancha": {
+            "description": "Últimos resultados de Revancha",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResultadoSorteoDto"
+            }
+          }
+        },
+        "required": [
+          "baloto",
+          "revancha"
+        ]
+      },
+      "NumerosUsuarioDto": {
+        "type": "object",
+        "properties": {
+          "numeros": {
+            "description": "Números jugados por el usuario",
+            "example": [
+              11,
+              12,
+              17,
+              5,
+              6
+            ],
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "superbalota": {
+            "type": "number",
+            "description": "Superbalota jugada por el usuario",
+            "example": 15
+          }
+        },
+        "required": [
+          "numeros",
+          "superbalota"
+        ]
+      },
+      "AciertosDto": {
+        "type": "object",
+        "properties": {
+          "numeros": {
+            "type": "number",
+            "description": "Cantidad de números acertados (0-5)",
+            "example": 3
+          },
+          "superbalota": {
+            "type": "boolean",
+            "description": "Si acertó la superbalota",
+            "example": true
+          }
+        },
+        "required": [
+          "numeros",
+          "superbalota"
+        ]
+      },
+      "VerificacionSorteoDto": {
+        "type": "object",
+        "properties": {
+          "tipoSorteo": {
+            "type": "string",
+            "description": "Tipo de sorteo verificado",
+            "example": "Baloto"
+          },
+          "ganador": {
+            "type": "boolean",
+            "description": "Si la jugada ganó algún premio",
+            "example": true
+          },
+          "categoria": {
+            "type": "string",
+            "description": "Categoría de premio: Premio Mayor, Segundo Premio, Tercer Premio, Cuarto Premio, Quinto Premio, Sexto Premio, Reintegro o Sin premio",
+            "example": "Quinto Premio"
+          },
+          "premio": {
+            "type": "number",
+            "description": "Identificador de categoría (1-7, 0 = sin premio). No es un monto monetario",
+            "example": 5
+          },
+          "aciertos": {
+            "description": "Detalle de aciertos",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AciertosDto"
+              }
+            ]
+          },
+          "numerosGanadores": {
+            "description": "Números ganadores del sorteo",
+            "example": [
+              11,
+              12,
+              17,
+              28,
+              31
+            ],
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "superbalotaGanadora": {
+            "type": "number",
+            "description": "Superbalota ganadora del sorteo",
+            "example": 15
+          }
+        },
+        "required": [
+          "tipoSorteo",
+          "ganador",
+          "categoria",
+          "premio",
+          "aciertos",
+          "numerosGanadores",
+          "superbalotaGanadora"
+        ]
+      },
+      "VerificarResponseDto": {
+        "type": "object",
+        "properties": {
+          "numerosUsuario": {
+            "description": "Jugada enviada por el usuario",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NumerosUsuarioDto"
+              }
+            ]
+          },
+          "baloto": {
+            "description": "Resultado de la verificación contra Baloto (null si no hay datos)",
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VerificacionSorteoDto"
+              }
+            ]
+          },
+          "revancha": {
+            "description": "Resultado de la verificación contra Revancha (null si no hay datos)",
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VerificacionSorteoDto"
+              }
+            ]
+          },
+          "fecha": {
+            "type": "string",
+            "description": "Fecha del sorteo verificado",
+            "example": "5 de Septiembre de 2026"
+          }
+        },
+        "required": [
+          "numerosUsuario",
+          "baloto",
+          "revancha",
+          "fecha"
+        ]
+      }
+    }
+  }
+}

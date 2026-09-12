@@ -34,19 +34,12 @@ class BalotoApi {
     return UltimoResultado.fromJson(json);
   }
 
-  /// Histórico de sorteos, con paginación del lado del servidor.
+  /// Histórico de sorteos de Baloto y Revancha.
   ///
-  /// [page] y [limit] son opcionales: si se omiten, el backend usa sus
-  /// valores por defecto (página 1, 10 resultados por página).
-  Future<Historico> getHistorico({int? page, int? limit}) async {
-    var uri = _uri('/baloto/historico');
-    final params = <String, String>{
-      if (page != null) 'page': '$page',
-      if (limit != null) 'limit': '$limit',
-    };
-    if (params.isNotEmpty) uri = uri.replace(queryParameters: params);
-
-    final json = await _getJson(uri);
+  /// El backend ya no pagina: devuelve la lista completa en una sola
+  /// respuesta (sin parámetros `page`/`limit`).
+  Future<Historico> getHistorico() async {
+    final json = await _getJson(_uri('/baloto/historico'));
     return Historico.fromJson(json);
   }
 
@@ -57,27 +50,6 @@ class BalotoApi {
   }) async {
     final uri = _uri('/baloto/verificar').replace(
       queryParameters: {
-        'numeros': numeros.join(','),
-        'superbalota': '$superbalota',
-      },
-    );
-    final json = await _getJson(uri);
-    return Verificacion.fromJson(json);
-  }
-
-  /// Verifica una jugada contra el sorteo de una fecha específica.
-  ///
-  /// [fecha] debe venir en formato `YYYY-MM-DD`. Si en esa fecha no
-  /// hubo sorteo, el backend responde 404 y aquí se lanza [ApiException]
-  /// con el mensaje del servidor.
-  Future<Verificacion> verificarPorFecha({
-    required String fecha,
-    required List<int> numeros,
-    required int superbalota,
-  }) async {
-    final uri = _uri('/baloto/verificar-por-fecha').replace(
-      queryParameters: {
-        'fecha': fecha,
         'numeros': numeros.join(','),
         'superbalota': '$superbalota',
       },
