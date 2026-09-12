@@ -270,18 +270,12 @@ void main() {
     await tester.enterText(find.byType(TextField), '999');
     await tester.pumpAndSettle();
 
-    expect(
-      find.text('Ningún sorteo coincide con "999".'),
-      findsOneWidget,
-    );
+    expect(find.text('Ningún sorteo coincide con "999".'), findsOneWidget);
     expect(find.text('Sorteo #5221'), findsNothing);
 
     // The Revancha tab shows the same message for its filtered list.
     await tapTab(tester, 'REVANCHA');
-    expect(
-      find.text('Ningún sorteo coincide con "999".'),
-      findsOneWidget,
-    );
+    expect(find.text('Ningún sorteo coincide con "999".'), findsOneWidget);
   });
 }
 

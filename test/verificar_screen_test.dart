@@ -325,5 +325,4 @@ void main() {
       expect(find.text('SIN PREMIO'), findsWidgets);
     });
   });
-
 }
