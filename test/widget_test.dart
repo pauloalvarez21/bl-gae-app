@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import 'package:bl_app/main.dart';
 import 'package:bl_app/services/balotoApi.dart';
@@ -219,12 +220,24 @@ void main() {
       }),
     );
 
+    // Sin platform channel en pruebas: valores mockeados para que
+    // PackageInfo.fromPlatform() resuelva siempre.
+    PackageInfo.setMockInitialValues(
+      appName: 'bl_app',
+      packageName: 'com.example.bl_app',
+      version: '1.0.0',
+      buildNumber: '1',
+      buildSignature: '',
+    );
+
     await tester.pumpWidget(MyApp(api: api, mostrarSplash: true));
     await tester.pump(); // primer frame de la animación de entrada
+    await tester.pump(); // frame donde ya llegó la versión consultada
 
-    // Crédito institucional y versión visibles durante el splash.
+    // Crédito institucional (año tomado del reloj) y versión mockeada.
+    final anio = DateTime.now().year.toString();
     expect(
-      find.text('© 2026 Gaelectronica. Todos los derechos reservados.'),
+      find.text('© $anio Gaelectronica. Todos los derechos reservados.'),
       findsOneWidget,
     );
     expect(

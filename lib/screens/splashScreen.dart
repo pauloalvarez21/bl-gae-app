@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import 'package:bl_app/config/appTheme.dart';
 
@@ -42,6 +43,14 @@ class _SplashScreenState extends State<SplashScreen>
   late final Animation<double> _escala;
   Timer? _timer;
 
+  /// Versión leída de los metadatos del paquete (mismo valor que
+  /// `version` en pubspec.yaml). Vacía hasta que llega la consulta.
+  String _version = '';
+
+  /// Año del crédito institucional, tomado del reloj del dispositivo
+  /// para que no quede desactualizado (antes iba fijo «2026»).
+  String get _anio => DateTime.now().year.toString();
+
   @override
   void initState() {
     super.initState();
@@ -49,6 +58,7 @@ class _SplashScreenState extends State<SplashScreen>
     // sean visibles. Al entrar al shell, los AppBar del tema oscuro
     // restauran los iconos claros por sí solos.
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
+    _cargarVersion();
 
     _entrada = AnimationController(
       vsync: this,
@@ -59,6 +69,15 @@ class _SplashScreenState extends State<SplashScreen>
     _escala = Tween<double>(begin: 0.92, end: 1).animate(_opacidad);
 
     _timer = Timer(widget.duracion, _entrarALaApp);
+  }
+
+  /// Lee la versión del paquete. En pruebas no hay platform channel:
+  /// el test instala valores mockeados con
+  /// `PackageInfo.setMockInitialValues` y aquí siempre hay respuesta.
+  Future<void> _cargarVersion() async {
+    final info = await PackageInfo.fromPlatform();
+    if (!mounted) return; // el splash puede ya haber navegado (~2 s)
+    setState(() => _version = 'v${info.version}');
   }
 
   /// Entra al shell con un fundido de 600 ms. Restaura los iconos
@@ -108,31 +127,26 @@ class _SplashScreenState extends State<SplashScreen>
                   ),
                 ),
                 const SizedBox(height: 32),
-                const Text(
-                  '© 2026 Gaelectronica. Todos los derechos reservados.',
+                Text(
+                  '© $_anio Gaelectronica. Todos los derechos reservados.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: AppColors.surface,
                   ),
                 ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Herramienta desarrollada por el Gaelectronica.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 13, color: Color(0xFF5A648C)),
-                ),
                 const SizedBox(height: 12),
-                const Text(
-                  'v1.0.0',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
-                    color: AppColors.baloto,
+                if (_version.isNotEmpty)
+                  Text(
+                    _version,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                      color: AppColors.baloto,
+                    ),
                   ),
-                ),
                 const SizedBox(height: 24),
               ],
             ),
