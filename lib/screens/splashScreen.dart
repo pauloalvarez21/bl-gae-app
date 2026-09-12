@@ -136,6 +136,12 @@ class _SplashScreenState extends State<SplashScreen>
                     color: AppColors.surface,
                   ),
                 ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Herramienta desarrollada por el Gaelectronica.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, color: Color(0xFF5A648C)),
+                ),
                 const SizedBox(height: 12),
                 if (_version.isNotEmpty)
                   Text(
