@@ -277,6 +277,36 @@ void main() {
     await tapTab(tester, 'REVANCHA');
     expect(find.text('Ningún sorteo coincide con "999".'), findsOneWidget);
   });
+
+  testWidgets('pull-to-refresh re-requests the histórico', (tester) async {
+    var callCount = 0;
+
+    final api = apiWith(
+      MockClient((request) async {
+        if (request.url.path == '/baloto/historico') callCount++;
+        return http.Response(jsonEncode(historicoJson), 200);
+      }),
+    );
+
+    // Viewport por defecto (800x600): la lista de sorteos desborda la
+    // pantalla, como en un teléfono real (con viewport gigante la lista
+    // corta cabe completa y el gesto no genera overscroll).
+    await tester.pumpWidget(MaterialApp(home: HistoricoScreen(api: api)));
+    await tester.pump();
+    await tester.pump();
+    expect(callCount, 1);
+
+    // Gesto de arrastre hacia abajo sobre la lista de sorteos (drag
+    // lento que termina sobrepasando el borde: como el pull real).
+    await tester.drag(find.text('Sorteo #5221'), const Offset(0, 300));
+    await tester.pump(); // arma el indicador con el overscroll
+    await tester.pump(const Duration(seconds: 1)); // dispara onRefresh
+    await tester.pumpAndSettle();
+
+    expect(callCount, 2);
+    // La lista sigue visible tras el refresco.
+    expect(find.text('Sorteo #5221'), findsOneWidget);
+  });
 }
 
 /// Helper for the loading test: pumps without pumpAndSettle because the

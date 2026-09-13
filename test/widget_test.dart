@@ -12,6 +12,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import 'package:bl_app/main.dart';
 import 'package:bl_app/services/balotoApi.dart';
+import 'package:bl_app/widgets/cachedDataBanner.dart';
 
 /// Valid JSON for the `/baloto/ultimo` endpoint.
 const ultimoJson = {
@@ -73,6 +74,9 @@ void main() {
     );
 
     await pumpApp(tester, api);
+
+    // Datos frescos: sin aviso de caché.
+    expect(find.byType(CachedDataBanner), findsNothing);
 
     // Section titles.
     expect(find.text('BALOTO'), findsOneWidget);
@@ -203,6 +207,31 @@ void main() {
     expect(callCount, 1);
 
     await tester.tap(find.byIcon(Icons.refresh));
+    await tester.pumpAndSettle();
+
+    expect(callCount, 2);
+  });
+
+  testWidgets('pull-to-refresh re-requests the endpoint', (tester) async {
+    var callCount = 0;
+
+    final api = apiWith(
+      MockClient((request) async {
+        // Solo el último resultado cuenta: el shell también precarga
+        // /baloto/historico al arrancar.
+        if (request.url.path == '/baloto/ultimo') callCount++;
+        return http.Response(jsonEncode(ultimoJson), 200);
+      }),
+    );
+
+    await pumpApp(tester, api);
+    expect(callCount, 1);
+
+    // Gesto de arrastre hacia abajo sobre el contenido (aunque no haya
+    // overflow, AlwaysScrollableScrollPhysics permite el pull).
+    await tester.drag(find.text('BALOTO'), const Offset(0, 300));
+    await tester.pump(); // arma el indicador con el overscroll
+    await tester.pump(const Duration(seconds: 1)); // dispara onRefresh
     await tester.pumpAndSettle();
 
     expect(callCount, 2);

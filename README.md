@@ -5,6 +5,13 @@ App móvil para consultar resultados, histórico y verificar jugadas de Baloto y
 ## Funcionalidades
 
 - **Resultados** — último sorteo de Baloto y Revancha con superbalota.
+- **Pull-to-refresh** — en Inicio e Histórico el gesto de arrastre hacia
+  abajo recarga los datos (mismo camino seguro que el botón «Recargar» del
+  AppBar), incluso cuando el contenido es más corto que la pantalla.
+- **Caché offline** — el último resultado y el histórico se persisten en
+  `shared_preferences`; si la petición falla por conexión, la app muestra
+  el último dato guardado con un aviso «Datos sin conexión» en vez de una
+  pantalla de error (ver [Caché offline](#caché-offline)).
 - **Fechas legibles** — las fechas ISO del backend (`2026-09-05`) se muestran
   en formato español («5 sept 2026») vía `intl` (ver `lib/utils/fechas.dart`).
 - **Histórico** — sorteos anteriores con pestañas por juego (lista completa;
@@ -27,6 +34,7 @@ lib/
 │   └── sorteo.dart           # Modelos tipados con fromJson
 ├── services/
 │   ├── balotoApi.dart        # Todas las llamadas HTTP + manejo de errores
+│   ├── cachedContentStore.dart # Caché offline (shared_preferences)
 │   ├── generadorNumeros.dart # Lógica de combinaciones (Random inyectable)
 │   └── ...
 ├── utils/
@@ -126,9 +134,33 @@ Notas del contrato actual:
 
 Los errores del backend llegan como `ApiException` con mensaje listo para UI.
 
+### Caché offline
+
+El backend vive en el tier gratuito de Render (con cold starts), así que la
+app persiste el último dato bueno en `shared_preferences`
+(`lib/services/cachedContentStore.dart`):
+
+- Cada respuesta **exitosa** de `/baloto/ultimo` y `/baloto/historico` se
+  guarda como JSON (claves `cache_baloto_ultimo_v1` y
+  `cache_baloto_historico_v1`).
+- Si la petición **falla** (timeout, sin conexión, 5xx sin cuerpo), la API
+  devuelve el dato cacheado: el usuario ve datos al instante en vez de un
+  error. Un `ApiException` solo llega a la UI si **no hay caché**.
+- El origen del dato viaja en `ResultadoEnLinea<T>` (`origen: red | cache`);
+  cuando viene del caché, las pantallas muestran un aviso discreto
+  «Datos sin conexión» (`lib/widgets/cachedDataBanner.dart`) para que el
+  usuario sepa que lo que ve puede no ser lo más reciente.
+- Si el JSON cacheado está corrupto se trata como caché vacío (todo el
+  store es no-throw).
+- Al cambiar el formato guardado, subir el sufijo `_v1` de las claves
+  invalida el caché viejo de todos los usuarios.
+
+La verificación (`/baloto/verificar`) no se cachea: depende de los números
+que ingresa el usuario y siempre refleja el último sorteo en servidor.
+
 ## Tests
 
-66 pruebas (unitarias y de widgets), todas sin red real:
+76+ pruebas (unitarias y de widgets), todas sin red real:
 
 ```bash
 flutter test          # toda la suite
@@ -141,10 +173,15 @@ flutter analyze       # análisis estático
   mocks: carga, éxito, error, navegación, validaciones y tarjetas de resultado.
 - **Enlace web** — `abrirSitioBaloto` es una variable sobreescribible para
   simular `url_launcher` sin plataforma (éxito, rechazo y excepción).
-- **Widgets compartidos** — `ErrorRetryView` y `LoadingView` (mensaje
-  opcional, callback de reintento).
+- **Widgets compartidos** — `ErrorRetryView`, `LoadingView` (mensaje
+  opcional, callback de reintento) y `CachedDataBanner` (aviso de datos
+  offline).
 - **Fechas** — `formatearFecha`: formato español, timestamps ISO completos,
   y strings no parseables que se devuelven intactos.
+- **Caché offline** — round-trip de modelos vía `toJson`/`fromJson`, JSON
+  corrupto tratado como caché vacío, store no-throw sin prefs, y el
+  fallback de `BalotoApi` (sirve caché al fallar, relanza si no hay,
+  persiste respuestas exitosas) con `SharedPreferences.setMockInitialValues`.
 
 ## Ícono de la app
 

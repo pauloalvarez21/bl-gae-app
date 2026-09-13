@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import 'package:bl_app/config/apiConfig.dart';
 import 'package:bl_app/models/sorteo.dart';
+import 'package:bl_app/services/cachedContentStore.dart';
 
 /// Excepción de la API con un mensaje listo para mostrar en la UI.
 class ApiException implements Exception {
@@ -16,31 +17,81 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
+/// Origen de los datos devueltos por la API.
+enum OrigenDatos {
+  /// Respuesta fresca del servidor.
+  red,
+
+  /// Servido desde el caché offline porque la petición falló.
+  cache,
+}
+
+/// Resultado de una consulta con su origen, para que la UI pueda
+/// avisar cuando lo que se muestra viene del caché offline.
+class ResultadoEnLinea<T> {
+  const ResultadoEnLinea(this.dato, this.origen);
+
+  final T dato;
+  final OrigenDatos origen;
+
+  /// `true` si el dato NO vino del servidor sino del caché.
+  bool get desdeCache => origen == OrigenDatos.cache;
+}
+
 /// Servicio central de la API de Baloto.
 ///
 /// TODAS las llamadas HTTP de la app viven aquí: las pantallas solo
 /// consumen métodos tipados y nunca importan `package:http`.
 class BalotoApi {
-  BalotoApi({http.Client? client, Duration? timeout})
+  BalotoApi({http.Client? client, Duration? timeout, CachedContentStore? cache})
     : _client = client ?? http.Client(),
-      _timeout = timeout ?? const Duration(seconds: ApiConfig.timeoutSeconds);
+      _timeout = timeout ?? const Duration(seconds: ApiConfig.timeoutSeconds),
+      _cache = cache ?? CachedContentStore();
 
   final http.Client _client;
   final Duration _timeout;
+  final CachedContentStore _cache;
 
   /// Último resultado de Baloto y Revancha.
-  Future<UltimoResultado> getUltimo() async {
-    final json = await _getJson(_uri('/baloto/ultimo'));
-    return UltimoResultado.fromJson(json);
+  ///
+  /// Con caché offline: cada respuesta exitosa se persiste y, si la
+  /// petición falla por red, se devuelve el último dato guardado con
+  /// `origen: OrigenDatos.cache` (los errores de respuesta HTTP con
+  /// cuerpo — 4xx/5xx con JSON — se respetan: el caché solo rescata
+  /// de fallos de *conexión*).
+  Future<ResultadoEnLinea<UltimoResultado>> getUltimo() async {
+    try {
+      final json = await _getJson(_uri('/baloto/ultimo'));
+      final resultado = UltimoResultado.fromJson(json);
+      await _cache.guardarUltimo(resultado);
+      return ResultadoEnLinea(resultado, OrigenDatos.red);
+    } on ApiException {
+      final cacheado = _cache.leerUltimo();
+      if (cacheado != null) {
+        return ResultadoEnLinea(cacheado, OrigenDatos.cache);
+      }
+      rethrow;
+    }
   }
 
   /// Histórico de sorteos de Baloto y Revancha.
   ///
   /// El backend ya no pagina: devuelve la lista completa en una sola
-  /// respuesta (sin parámetros `page`/`limit`).
-  Future<Historico> getHistorico() async {
-    final json = await _getJson(_uri('/baloto/historico'));
-    return Historico.fromJson(json);
+  /// respuesta (sin parámetros `page`/`limit`). Con caché offline con
+  /// la misma semántica que [getUltimo].
+  Future<ResultadoEnLinea<Historico>> getHistorico() async {
+    try {
+      final json = await _getJson(_uri('/baloto/historico'));
+      final historico = Historico.fromJson(json);
+      await _cache.guardarHistorico(historico);
+      return ResultadoEnLinea(historico, OrigenDatos.red);
+    } on ApiException {
+      final cacheado = _cache.leerHistorico();
+      if (cacheado != null) {
+        return ResultadoEnLinea(cacheado, OrigenDatos.cache);
+      }
+      rethrow;
+    }
   }
 
   /// Verifica una combinación contra el último sorteo.

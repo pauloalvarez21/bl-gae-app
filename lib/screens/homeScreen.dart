@@ -6,6 +6,7 @@ import 'package:bl_app/config/appTheme.dart';
 import 'package:bl_app/utils/fechas.dart';
 import 'package:bl_app/widgets/balota.dart';
 import 'package:bl_app/widgets/balotoSiteLink.dart';
+import 'package:bl_app/widgets/cachedDataBanner.dart';
 import 'package:bl_app/widgets/errorRetryView.dart';
 import 'package:bl_app/widgets/loadingView.dart';
 
@@ -28,7 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Se crea UNA sola vez en initState (y no en build), evitando
   // peticiones repetidas en cada redibujado de la pantalla.
-  late Future<UltimoResultado> _resultado;
+  late Future<ResultadoEnLinea<UltimoResultado>> _resultado;
 
   @override
   void initState() {
@@ -68,7 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: FutureBuilder<UltimoResultado>(
+      body: FutureBuilder<ResultadoEnLinea<UltimoResultado>>(
         future: _resultado,
         builder: (context, snapshot) {
           // A) Estado: Cargando
@@ -86,38 +87,53 @@ class _HomeScreenState extends State<HomeScreen> {
 
           // C) Estado: Éxito (Datos listos)
           if (snapshot.hasData) {
-            final data = snapshot.data!;
+            final envoltorio = snapshot.data!;
+            final data = envoltorio.dato;
 
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildLotteryCard(
-                    title: 'BALOTO',
-                    fecha: formatearFecha(data.baloto.fecha),
-                    numeros: data.baloto.numeros,
-                    superNumero: data.baloto.superbalota,
-                    accent: AppColors.baloto,
-                    gradient: balotoGradient,
-                  ),
-                  const SizedBox(height: 24),
-                  _buildLotteryCard(
-                    title: 'REVANCHA',
-                    fecha: formatearFecha(data.revancha.fecha),
-                    numeros: data.revancha.numeros,
-                    superNumero: data.revancha.superbalota,
-                    accent: AppColors.revancha,
-                    gradient: revanchaGradient,
-                  ),
-                  const SizedBox(height: 24),
-                  _buildCtaVerificar(),
-                  const SizedBox(height: 24),
+            return Column(
+              children: [
+                // Aviso discreto cuando lo que se ve salió del caché.
+                if (envoltorio.desdeCache) const CachedDataBanner(),
+                Expanded(
+                  child: RefreshIndicator(
+                    // Pull-to-refresh: mismo camino seguro que el botón
+                    // del AppBar (_recargar no lanza).
+                    onRefresh: _recargar,
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(20.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _buildLotteryCard(
+                            title: 'BALOTO',
+                            fecha: formatearFecha(data.baloto.fecha),
+                            numeros: data.baloto.numeros,
+                            superNumero: data.baloto.superbalota,
+                            accent: AppColors.baloto,
+                            gradient: balotoGradient,
+                          ),
+                          const SizedBox(height: 24),
+                          _buildLotteryCard(
+                            title: 'REVANCHA',
+                            fecha: formatearFecha(data.revancha.fecha),
+                            numeros: data.revancha.numeros,
+                            superNumero: data.revancha.superbalota,
+                            accent: AppColors.revancha,
+                            gradient: revanchaGradient,
+                          ),
+                          const SizedBox(height: 24),
+                          _buildCtaVerificar(),
+                          const SizedBox(height: 24),
 
-                  // Enlace al histórico completo del sitio oficial.
-                  const BalotoSiteLink(),
-                ],
-              ),
+                          // Enlace al histórico completo del sitio oficial.
+                          const BalotoSiteLink(),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             );
           }
 

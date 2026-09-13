@@ -47,11 +47,12 @@ void main() {
           'https://bl-gae-api.onrender.com/baloto/ultimo',
         );
 
-        expect(result.baloto.fecha, '2026-09-05');
-        expect(result.baloto.numeros, [5, 12, 23, 34, 42]);
-        expect(result.baloto.superbalota, 14);
-        expect(result.revancha.numeros, [1, 2, 3, 4, 5]);
-        expect(result.revancha.superbalota, 7);
+        expect(result.origen, OrigenDatos.red);
+        expect(result.dato.baloto.fecha, '2026-09-05');
+        expect(result.dato.baloto.numeros, [5, 12, 23, 34, 42]);
+        expect(result.dato.baloto.superbalota, 14);
+        expect(result.dato.revancha.numeros, [1, 2, 3, 4, 5]);
+        expect(result.dato.revancha.superbalota, 7);
       });
 
       test('throws ApiException with server message on 500', () async {
@@ -114,13 +115,14 @@ void main() {
         final api = BalotoApi(client: mockClient);
         final historico = await api.getHistorico();
 
-        expect(historico.baloto, hasLength(2));
-        expect(historico.baloto.first.numeroSorteo, 5221);
-        expect(historico.baloto.first.fecha, '2026-09-05');
-        expect(historico.baloto[1].numeros, [3, 9, 17, 28, 40]);
+        expect(historico.origen, OrigenDatos.red);
+        expect(historico.dato.baloto, hasLength(2));
+        expect(historico.dato.baloto.first.numeroSorteo, 5221);
+        expect(historico.dato.baloto.first.fecha, '2026-09-05');
+        expect(historico.dato.baloto[1].numeros, [3, 9, 17, 28, 40]);
 
-        expect(historico.revancha, hasLength(1));
-        expect(historico.revancha.first.superbalota, 8);
+        expect(historico.dato.revancha, hasLength(1));
+        expect(historico.dato.revancha.first.superbalota, 8);
       });
 
       test('does not send page or limit query params anymore', () async {
@@ -149,8 +151,8 @@ void main() {
         final api = BalotoApi(client: mockClient);
         final historico = await api.getHistorico();
 
-        expect(historico.baloto, isEmpty);
-        expect(historico.revancha, isEmpty);
+        expect(historico.dato.baloto, isEmpty);
+        expect(historico.dato.revancha, isEmpty);
       });
     });
 

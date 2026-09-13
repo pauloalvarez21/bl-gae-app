@@ -7,6 +7,7 @@ import 'package:bl_app/config/appTheme.dart';
 import 'package:bl_app/utils/fechas.dart';
 import 'package:bl_app/widgets/balota.dart';
 import 'package:bl_app/widgets/balotoSiteLink.dart';
+import 'package:bl_app/widgets/cachedDataBanner.dart';
 import 'package:bl_app/widgets/errorRetryView.dart';
 import 'package:bl_app/widgets/loadingView.dart';
 
@@ -26,7 +27,11 @@ class _HistoricoScreenState extends State<HistoricoScreen>
   late TabController _tabController;
 
   // Se crea una sola vez en initState (no en build).
-  late Future<Historico> _historico;
+  late Future<ResultadoEnLinea<Historico>> _historico;
+
+  /// `true` cuando la carga actual resolvió desde el caché offline;
+  /// controla la visibilidad del aviso "Datos sin conexión".
+  bool _desdeCache = false;
 
   /// Búsqueda local por número de sorteo sobre la lista cargada.
   /// (El backend aún no expone filtro ?sorteo=; cuando lo haga, esto
@@ -41,18 +46,46 @@ class _HistoricoScreenState extends State<HistoricoScreen>
     // 2 pestañas: Baloto y Revancha
     _tabController = TabController(length: 2, vsync: this);
     _historico = _api.getHistorico();
+    _escucharOrigen();
+  }
+
+  /// Escucha el future actual para confirmar el origen del dato. El
+  /// rechazo se ignora a propósito: el FutureBuilder ya pinta el
+  /// error, y un segundo listener sin onError dejaría la excepción
+  /// "no manejada" (falla los tests y ensucia los logs).
+  void _escucharOrigen() {
+    _historico.then(_confirmarOrigen, onError: (Object _) {});
   }
 
   /// Recarga el histórico completo (el backend ya no pagina).
   void _cargar() {
     setState(() {
+      _desdeCache = false; // optimista: la nueva carga viene de la red
       _historico = _api.getHistorico();
     });
+    // El origen real se confirma en el listener del future.
+    _escucharOrigen();
   }
 
   Future<void> _recargar() async {
     _cargar();
-    await _historico;
+    try {
+      await _historico;
+    } catch (_) {
+      // El error ya se pinta en el FutureBuilder; no relanzar para no
+      // dejar rechazos no manejados (el RefreshIndicator del gesto
+      // pull-to-refresh también pasa por aquí).
+    }
+  }
+
+  /// Confirma el origen del dato de la carga actual y refresca el
+  /// aviso. Evita la trampa de llamar setState durante el build del
+  /// FutureBuilder (el banner NO depende del snapshot sino de este
+  /// flag del State).
+  void _confirmarOrigen(ResultadoEnLinea<Historico> envoltorio) {
+    if (!mounted) return;
+    if (_desdeCache == envoltorio.desdeCache) return;
+    setState(() => _desdeCache = envoltorio.desdeCache);
   }
 
   @override
@@ -93,7 +126,7 @@ class _HistoricoScreenState extends State<HistoricoScreen>
           ],
         ),
       ),
-      body: FutureBuilder<Historico>(
+      body: FutureBuilder<ResultadoEnLinea<Historico>>(
         future: _historico,
         builder: (context, snapshot) {
           // A) Cargando
@@ -109,12 +142,13 @@ class _HistoricoScreenState extends State<HistoricoScreen>
           }
           // C) Éxito
           else if (snapshot.hasData) {
-            final data = snapshot.data!;
+            final data = snapshot.data!.dato;
             final balotoList = data.baloto;
             final revanchaList = data.revancha;
 
             return Column(
               children: [
+                if (_desdeCache) const CachedDataBanner(),
                 _buildBusqueda(),
                 Expanded(
                   child: TabBarView(
@@ -185,13 +219,34 @@ class _HistoricoScreenState extends State<HistoricoScreen>
     );
   }
 
+  /// Pull-to-refresh sobre un hijo ya deslizable (ListView...). Usa el
+  /// mismo camino seguro que el botón de recarga del AppBar: [_recargar]
+  /// no lanza.
+  Widget _conRefresh(Widget hijo) {
+    return RefreshIndicator(onRefresh: _recargar, child: hijo);
+  }
+
+  /// Igual que [_conRefresh] para contenido NO deslizable (estados
+  /// vacíos): lo mete en un CustomScrollView de una pantalla completa
+  /// para que el gesto también funcione sin datos que deslizar.
+  Widget _conRefreshNoScrollable(Widget hijo) {
+    return _conRefresh(
+      CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [SliverFillRemaining(hasScrollBody: false, child: hijo)],
+      ),
+    );
+  }
+
   // Widget reutilizable para pintar la lista de sorteos
   Widget _buildListView(List<SorteoHistorico> sorteos, Color color) {
     if (sorteos.isEmpty) {
-      return const Center(
-        child: Text(
-          'No hay sorteos registrados aún.',
-          style: TextStyle(color: AppColors.textSecondary),
+      return _conRefreshNoScrollable(
+        const Center(
+          child: Text(
+            'No hay sorteos registrados aún.',
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
         ),
       );
     }
@@ -205,108 +260,115 @@ class _HistoricoScreenState extends State<HistoricoScreen>
               .toList();
 
     if (filtrados.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.search_off,
-                size: 48,
-                color: AppColors.textSecondary,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Ningún sorteo coincide con "$query".',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: AppColors.textSecondary),
-              ),
-            ],
+      return _conRefreshNoScrollable(
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.search_off,
+                  size: 48,
+                  color: AppColors.textSecondary,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Ningún sorteo coincide con "$query".',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: AppColors.textSecondary),
+                ),
+              ],
+            ),
           ),
         ),
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16.0),
-      itemCount: filtrados.length,
-      itemBuilder: (context, index) {
-        final sorteo = filtrados[index];
-        final fecha = sorteo.fecha;
-        final numeroSorteo = sorteo.numeroSorteo;
-        final numeros = sorteo.numeros;
-        final superNumero = sorteo.superbalota;
+    return _conRefresh(
+      // AlwaysScrollable: el gesto pull-to-refresh debe funcionar aunque
+      // la lista sea más corta que el viewport.
+      ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16.0),
+        itemCount: filtrados.length,
+        itemBuilder: (context, index) {
+          final sorteo = filtrados[index];
+          final fecha = sorteo.fecha;
+          final numeroSorteo = sorteo.numeroSorteo;
+          final numeros = sorteo.numeros;
+          final superNumero = sorteo.superbalota;
 
-        return Card(
-          margin: const EdgeInsets.only(bottom: 16),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Encabezado de la tarjeta
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Sorteo #$numeroSorteo',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: color,
-                        fontSize: 16,
+          return Card(
+            margin: const EdgeInsets.only(bottom: 16),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Encabezado de la tarjeta
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Sorteo #$numeroSorteo',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: color,
+                          fontSize: 16,
+                        ),
                       ),
-                    ),
-                    Text(
-                      formatearFecha(fecha),
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 14,
+                      Text(
+                        formatearFecha(fecha),
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 14,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
 
-                // Números principales
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final num in numeros)
-                      Balota(numero: num, color: color, size: 40),
-                  ],
-                ),
+                  // Números principales
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final num in numeros)
+                        Balota(numero: num, color: color, size: 40),
+                    ],
+                  ),
 
-                const SizedBox(height: 16),
-                const Divider(height: 1),
-                const SizedBox(height: 12),
+                  const SizedBox(height: 16),
+                  const Divider(height: 1),
+                  const SizedBox(height: 12),
 
-                // Super Balota / Super Revancha
-                Row(
-                  children: [
-                    const Text(
-                      'Super: ',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                        color: AppColors.textPrimary,
+                  // Super Balota / Super Revancha
+                  Row(
+                    children: [
+                      const Text(
+                        'Super: ',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          color: AppColors.textPrimary,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Balota(
-                      numero: superNumero,
-                      color: AppColors.superbalota,
-                      size: 36,
-                      isSuper: true,
-                    ),
-                  ],
-                ),
-              ],
+                      const SizedBox(width: 8),
+                      Balota(
+                        numero: superNumero,
+                        color: AppColors.superbalota,
+                        size: 36,
+                        isSuper: true,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }

@@ -45,6 +45,14 @@ class Sorteo {
       superbalota: _toInt(json['superbalota']),
     );
   }
+
+  /// Serialización para el caché offline (misma forma que el JSON de
+  /// la API, así `fromJson` funciona para ambos).
+  Map<String, dynamic> toJson() => {
+    'fecha': fecha,
+    'numeros': numeros,
+    'superbalota': superbalota,
+  };
 }
 
 /// Respuesta de `/baloto/ultimo`: incluye Baloto y Revancha.
@@ -60,6 +68,12 @@ class UltimoResultado {
       revancha: Sorteo.fromJson(json['revancha'] ?? <String, dynamic>{}),
     );
   }
+
+  /// Serialización para el caché offline.
+  Map<String, dynamic> toJson() => {
+    'baloto': baloto.toJson(),
+    'revancha': revancha.toJson(),
+  };
 }
 
 // ---------- /baloto/historico ----------
@@ -86,6 +100,16 @@ class SorteoHistorico {
       superbalota: _toInt(json['superbalota']),
     );
   }
+
+  /// Serialización para el caché offline. La clave del número de
+  /// sorteo es `sorteo` para redondear: `fromJson` acepta el JSON de
+  /// la API y el del caché sin cambios.
+  Map<String, dynamic> toJson() => {
+    'sorteo': numeroSorteo,
+    'fecha': fecha,
+    'numeros': numeros,
+    'superbalota': superbalota,
+  };
 }
 
 /// Respuesta de `/baloto/historico`: listas de Baloto y Revancha.
@@ -105,6 +129,12 @@ class Historico {
           .toList(),
     );
   }
+
+  /// Serialización para el caché offline.
+  Map<String, dynamic> toJson() => {
+    'baloto': [for (final s in baloto) s.toJson()],
+    'revancha': [for (final s in revancha) s.toJson()],
+  };
 }
 
 // ---------- /baloto/verificar ----------
